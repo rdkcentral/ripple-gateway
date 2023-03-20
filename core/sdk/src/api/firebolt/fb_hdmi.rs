@@ -7,7 +7,7 @@ pub struct GetAvailableInputsResponse {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HdmiInput {
-    pub id: String,
+    pub id: i32,
     pub locator: String,
-    pub connected: bool,
+    pub connected: String,
 }
