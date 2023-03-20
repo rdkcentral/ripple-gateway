@@ -5,6 +5,7 @@ use thunder_ripple_sdk::{
 use crate::processors::{
     thunder_browser::ThunderBrowserRequestProcessor,
     thunder_device_info::ThunderDeviceInfoRequestProcessor,
+    thunder_hdmi::ThunderHdmiRequestProcessor,
     thunder_window_manager::ThunderWindowManagerRequestProcessor,
 };
 
@@ -19,6 +20,7 @@ impl SetupThunderProcessor {
         state: ThunderBootstrapStateWithClient,
     ) -> Result<ThunderBootstrapStateWithClient, RippleError> {
         let mut extn_client = state.state.get_client();
+        extn_client.add_request_processor(ThunderHdmiRequestProcessor::new(state.clone().state));
         extn_client
             .add_request_processor(ThunderDeviceInfoRequestProcessor::new(state.clone().state));
         extn_client.add_request_processor(ThunderBrowserRequestProcessor::new(state.clone().state));
