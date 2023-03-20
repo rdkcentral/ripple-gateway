@@ -408,15 +408,12 @@ impl ThunderClientBuilder {
         let (s, mut r) = mpsc::channel::<ThunderMessage>(32);
         let pmtx_c = plugin_manager_tx.clone();
         tokio::spawn(async move {
-            let url_with_token = if cfg!(feature = "local_dev") {
-                if let Ok(token) = env::var("THUNDER_TOKEN") {
-                    Url::parse_with_params(url.as_str(), &[("token", token)]).unwrap()
-                } else {
-                    url.clone()
-                }
+            let url_with_token = if let Ok(token) = env::var("THUNDER_TOKEN") {
+                Url::parse_with_params(url.as_str(), &[("token", token)]).unwrap()
             } else {
                 url.clone()
             };
+
             let client = WsClientBuilder::default()
                 .build(url_with_token.to_string())
                 .await

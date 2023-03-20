@@ -11,6 +11,7 @@ pub enum ThunderPlugin {
     RDKShell,
     PersistentStorage,
     System,
+    Hdmi,
     Wifi,
     TextToSpeech,
 }
@@ -23,6 +24,7 @@ const SYSTEM_CFG: Cfg = Cfg::new("org.rdk.System", true, false);
 const WIFI_CFG: Cfg = Cfg::new("org.rdk.Wifi", false, false);
 const LOCATION_SYNC: Cfg = Cfg::new("LocationSync", false, false);
 const TTS_CFG: Cfg = Cfg::new("org.rdk.TextToSpeech", false, true);
+const HDMI_CFG: Cfg = Cfg::new("org.rdk.HdmiInput", false, false);
 
 impl ThunderPlugin {
     pub fn cfg(&self) -> Cfg {
@@ -37,6 +39,7 @@ impl ThunderPlugin {
             Wifi => WIFI_CFG,
             LocationSync => LOCATION_SYNC,
             TextToSpeech => TTS_CFG,
+            Hdmi => HDMI_CFG,
         }
     }
     pub fn callsign(&self) -> &str {

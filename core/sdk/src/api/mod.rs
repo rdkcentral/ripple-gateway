@@ -12,6 +12,7 @@ pub mod gateway {
 pub mod firebolt {
     pub mod fb_discovery;
     pub mod fb_general;
+    pub mod fb_hdmi;
     pub mod fb_lifecycle;
     pub mod fb_lifecycle_management;
     pub mod fb_parameters;
