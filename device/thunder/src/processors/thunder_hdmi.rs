@@ -13,7 +13,6 @@ use thunder_ripple_sdk::ripple_sdk::{
         },
         extn_client_message::{ExtnMessage, ExtnResponse},
     },
-    log::info,
     serde_json,
     utils::error::RippleError,
 };
@@ -29,6 +28,12 @@ pub struct ThunderHdmiRequestProcessor {
     streamer: DefaultExtnStreamer,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AVInputGetInputDevicesParams {
+    type_of_input: String,
+}
+
 impl ThunderHdmiRequestProcessor {
     pub fn new(state: ThunderState) -> ThunderHdmiRequestProcessor {
         ThunderHdmiRequestProcessor {
@@ -38,21 +43,28 @@ impl ThunderHdmiRequestProcessor {
     }
 
     async fn get_available_inputs(state: ThunderState, req: ExtnMessage) -> bool {
+        let params = AVInputGetInputDevicesParams {
+            type_of_input: "HDMI".to_owned(),
+        };
+
         let response = state
             .get_thunder_client()
             .call(DeviceCallRequest {
-                method: ThunderPlugin::Hdmi.method("getHDMIInputDevices"),
-                params: None,
+                method: ThunderPlugin::AVInput.method("getInputDevices"),
+                params: serde_json::to_string(&params)
+                    .map(DeviceChannelParams::Json)
+                    .ok(),
             })
             .await;
-        info!("{}", response.message);
 
-        let response = if let Ok(_res) =
+        let response =
             serde_json::from_value::<GetAvailableInputsResponse>(response.message.clone())
-        {
-            ExtnResponse::Value(response.message)
-        } else {
-            ExtnResponse::Error(RippleError::InvalidOutput)
+                .map(|_| ExtnResponse::Value(response.message))
+                .unwrap_or(ExtnResponse::Error(RippleError::InvalidOutput));
+
+        Self::respond(state.get_client(), req, response)
+            .await
+            .is_ok()
         };
 
         Self::respond(state.get_client(), req, response)

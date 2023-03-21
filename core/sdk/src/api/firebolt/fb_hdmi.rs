@@ -1,4 +1,4 @@
-use serde::{de::Error, Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GetAvailableInputsResponse {
@@ -9,21 +9,7 @@ pub struct GetAvailableInputsResponse {
 pub struct HdmiInput {
     pub id: i32,
     pub locator: String,
-    #[serde(deserialize_with = "string_to_bool")]
     pub connected: bool,
-}
-
-fn string_to_bool<'de, D>(deserializer: D) -> Result<bool, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let s: &str = Deserialize::deserialize(deserializer)?;
-
-    match s {
-        "true" => Ok(true),
-        "false" => Ok(false),
-        _ => Err(Error::unknown_variant(s, &["true", "false"])),
-    }
 }
 
 #[cfg(test)]
