@@ -13,7 +13,8 @@
                     "fulfills": [
                         "device:info",
                         "device:windowmanager",
-                        "device:browser"
+                        "device:browser",
+                        "device:hdmi"
                     ]
                 }
             ]
