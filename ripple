@@ -25,12 +25,21 @@ case ${1} in
     ;;
     "run")
         cargo build
+
+        if [ "$2" == "127.0.0.1" -o "$2" == "localhost" ]; then
+            export THUNDER_TOKEN=$('/usr/bin/WPEFrameworkSecurityUtility' | cut -d':' -f2 | cut -d'"' -f2)
+        elif [ "$3" == "-port" -a "$4" != "" ]; then
+            export THUNDER_TOKEN=$(ssh -o StrictHostKeyChecking=no -p $4 root@$2 '/usr/bin/WPEFrameworkSecurityUtility' | cut -d':' -f2 | cut -d'"' -f2)
+        else
+            export THUNDER_TOKEN=$(ssh root@$2 '/usr/bin/WPEFrameworkSecurityUtility' | cut -d':' -f2 | cut -d'"' -f2)
+        fi
+
         THUNDER_HOST=${2} cargo run core/main
     ;;
     "-h")
         print_help
     ;;
-    *)  
+    *)
       	print_help
-    ;; 
+    ;;
 esac
