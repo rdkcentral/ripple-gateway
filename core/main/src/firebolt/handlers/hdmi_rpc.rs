@@ -21,8 +21,8 @@ use ripple_sdk::{
 
 #[rpc(server)]
 pub trait Hdmi {
-    #[method(name = "hdmi.startHdmiInput")]
-    async fn start_hdmi_input(
+    #[method(name = "hdmi.setActiveInput")]
+    async fn set_active_input(
         &self,
         ctx: CallContext,
         request: StartHdmiInputRequest,
@@ -40,7 +40,7 @@ pub struct HdmiImpl {
 
 #[async_trait]
 impl HdmiServer for HdmiImpl {
-    async fn start_hdmi_input(
+    async fn set_active_input(
         &self,
         _ctx: CallContext,
         request: StartHdmiInputRequest,
@@ -48,7 +48,7 @@ impl HdmiServer for HdmiImpl {
         if let Ok(response) = self
             .state
             .get_client()
-            .send_extn_request(HdmiRequest::StartHdmiInput(request.port_id))
+            .send_extn_request(HdmiRequest::SetActiveInput(request.port_id))
             .await
         {
             match response.payload {

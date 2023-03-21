@@ -131,7 +131,7 @@ impl ExtnRequestProcessor for ThunderHdmiRequestProcessor {
     ) -> bool {
         match extracted_message {
             HdmiRequest::GetAvailableInputs => Self::get_available_inputs(state.clone(), msg).await,
-            HdmiRequest::StartHdmiInput(port_id) => {
+            HdmiRequest::SetActiveInput(port_id) => {
                 Self::start_hdmi_input(state.clone(), port_id, msg).await
             }
         }

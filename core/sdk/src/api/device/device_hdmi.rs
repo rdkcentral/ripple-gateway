@@ -10,7 +10,7 @@ use super::device_request::DeviceRequest;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum HdmiRequest {
     GetAvailableInputs,
-    StartHdmiInput(String),
+    SetActiveInput(String),
 }
 
 impl ExtnPayloadProvider for HdmiRequest {
