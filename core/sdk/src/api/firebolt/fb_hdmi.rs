@@ -1,6 +1,15 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct StartHdmiInputResponse {}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct StartHdmiInputRequest {
+    pub port_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GetAvailableInputsResponse {
     pub devices: Vec<HdmiInput>,
 }

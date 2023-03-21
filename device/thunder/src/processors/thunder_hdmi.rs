@@ -1,10 +1,11 @@
+use serde::{Deserialize, Serialize};
 use thunder_ripple_sdk::ripple_sdk::{
     api::{
         device::{
             device_hdmi::HdmiRequest,
-            device_operator::{DeviceCallRequest, DeviceOperator},
+            device_operator::{DeviceCallRequest, DeviceChannelParams, DeviceOperator},
         },
-        firebolt::fb_hdmi::GetAvailableInputsResponse,
+        firebolt::fb_hdmi::{GetAvailableInputsResponse, StartHdmiInputResponse},
     },
     async_trait::async_trait,
     extn::{
@@ -31,6 +32,13 @@ pub struct ThunderHdmiRequestProcessor {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AVInputGetInputDevicesParams {
+    type_of_input: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AVInputStartHdmiInputParams {
+    port_id: String,
     type_of_input: String,
 }
 
@@ -65,7 +73,27 @@ impl ThunderHdmiRequestProcessor {
         Self::respond(state.get_client(), req, response)
             .await
             .is_ok()
+    }
+
+    async fn start_hdmi_input(state: ThunderState, port_id: String, req: ExtnMessage) -> bool {
+        let params = AVInputStartHdmiInputParams {
+            port_id,
+            type_of_input: "HDMI".to_owned(),
         };
+
+        let response = state
+            .get_thunder_client()
+            .call(DeviceCallRequest {
+                method: ThunderPlugin::AVInput.method("startInput"),
+                params: serde_json::to_string(&params)
+                    .ok()
+                    .map(DeviceChannelParams::Json),
+            })
+            .await;
+
+        let response = serde_json::from_value::<StartHdmiInputResponse>(response.message.clone())
+            .map(|_| ExtnResponse::Value(response.message))
+            .unwrap_or(ExtnResponse::Error(RippleError::InvalidOutput));
 
         Self::respond(state.get_client(), req, response)
             .await
@@ -103,6 +131,9 @@ impl ExtnRequestProcessor for ThunderHdmiRequestProcessor {
     ) -> bool {
         match extracted_message {
             HdmiRequest::GetAvailableInputs => Self::get_available_inputs(state.clone(), msg).await,
+            HdmiRequest::StartHdmiInput(port_id) => {
+                Self::start_hdmi_input(state.clone(), port_id, msg).await
+            }
         }
     }
 }

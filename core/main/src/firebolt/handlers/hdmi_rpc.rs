@@ -8,7 +8,10 @@ use jsonrpsee::{
     RpcModule,
 };
 use ripple_sdk::api::{
-    firebolt::fb_hdmi::GetAvailableInputsResponse, gateway::rpc_gateway_api::CallContext,
+    firebolt::fb_hdmi::{
+        GetAvailableInputsResponse, StartHdmiInputRequest, StartHdmiInputResponse,
+    },
+    gateway::rpc_gateway_api::CallContext,
 };
 use ripple_sdk::serde_json;
 use ripple_sdk::{
@@ -18,6 +21,13 @@ use ripple_sdk::{
 
 #[rpc(server)]
 pub trait Hdmi {
+    #[method(name = "hdmi.startHdmiInput")]
+    async fn start_hdmi_input(
+        &self,
+        ctx: CallContext,
+        request: StartHdmiInputRequest,
+    ) -> RpcResult<StartHdmiInputResponse>;
+
     #[method(name = "hdmi.getAvailableInputs")]
     async fn get_available_inputs(&self, ctx: CallContext)
         -> RpcResult<GetAvailableInputsResponse>;
@@ -30,6 +40,30 @@ pub struct HdmiImpl {
 
 #[async_trait]
 impl HdmiServer for HdmiImpl {
+    async fn start_hdmi_input(
+        &self,
+        _ctx: CallContext,
+        request: StartHdmiInputRequest,
+    ) -> RpcResult<StartHdmiInputResponse> {
+        if let Ok(response) = self
+            .state
+            .get_client()
+            .send_extn_request(HdmiRequest::StartHdmiInput(request.port_id))
+            .await
+        {
+            match response.payload {
+                ExtnPayload::Response(ExtnResponse::Value(value)) => {
+                    if let Ok(res) = serde_json::from_value::<StartHdmiInputResponse>(value) {
+                        return Ok(res);
+                    }
+                }
+                _ => (),
+            }
+        }
+
+        Err(rpc_err("FB error response TBD"))
+    }
+
     async fn get_available_inputs(
         &self,
         _ctx: CallContext,
