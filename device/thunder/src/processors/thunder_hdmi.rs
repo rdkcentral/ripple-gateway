@@ -14,6 +14,7 @@ use thunder_ripple_sdk::ripple_sdk::{
         },
         extn_client_message::{ExtnMessage, ExtnResponse},
     },
+    log::info,
     serde_json,
     utils::error::RippleError,
 };
@@ -42,6 +43,14 @@ struct AVInputStartHdmiInputParams {
     type_of_input: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RDKShellHolePunchParams {
+    callsign: String,
+    hole_punch: bool,
+    client: String,
+}
+
 impl ThunderHdmiRequestProcessor {
     pub fn new(state: ThunderState) -> ThunderHdmiRequestProcessor {
         ThunderHdmiRequestProcessor {
@@ -51,6 +60,22 @@ impl ThunderHdmiRequestProcessor {
     }
 
     async fn get_available_inputs(state: ThunderState, req: ExtnMessage) -> bool {
+        let params = RDKShellHolePunchParams {
+            hole_punch: true,
+            client: "FireboltMainApp-refui".to_string(),
+            callsign: "FireboltMainApp-refui".to_string(),
+        };
+        info!("ExtnMessage {:#?}", req);
+        state
+            .get_thunder_client()
+            .call(DeviceCallRequest {
+                method: ThunderPlugin::RDKShell.method("setHolePunch"),
+                params: serde_json::to_string(&params)
+                    .map(DeviceChannelParams::Json)
+                    .ok(),
+            })
+            .await;
+
         let params = AVInputGetInputDevicesParams {
             type_of_input: "HDMI".to_owned(),
         };
