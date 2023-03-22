@@ -6,7 +6,7 @@ pub struct StartHdmiInputResponse {}
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct StartHdmiInputRequest {
-    pub port_id: String,
+    pub id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

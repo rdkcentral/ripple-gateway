@@ -48,7 +48,7 @@ impl HdmiServer for HdmiImpl {
         if let Ok(response) = self
             .state
             .get_client()
-            .send_extn_request(HdmiRequest::SetActiveInput(request.port_id))
+            .send_extn_request(HdmiRequest::SetActiveInput(request.id))
             .await
         {
             match response.payload {
