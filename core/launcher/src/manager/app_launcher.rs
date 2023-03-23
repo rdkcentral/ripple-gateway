@@ -639,7 +639,7 @@ impl AppLauncher {
             let app_id = request.app_id.clone();
             let launch_time = app.launch_time;
             tokio::spawn(async move {
-                sleep(Duration::from_millis(timeout)).await;
+                sleep(Duration::from_millis(timeout) ).await;
                 let _ = Self::check_ready(&state_c, &app_id, launch_time).await;
             });
         }
@@ -689,6 +689,7 @@ impl AppLauncher {
         let entry = state.app_launcher_state.get_app_by_id(app_id);
         match entry {
             Some(app) => {
+                info!("{:#?}", app);
                 if launch_time == app.launch_time && !app.ready {
                     warn!("check_ready: App={} not ready, unloading", app_id);
                     Self::close(state, app_id, CloseReason::AppNotReady)

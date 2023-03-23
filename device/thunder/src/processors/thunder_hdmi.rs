@@ -39,7 +39,7 @@ struct AVInputGetInputDevicesParams {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AVInputStartHdmiInputParams {
-    port_id: String,
+    port_id: u32,
     type_of_input: String,
 }
 
@@ -102,7 +102,7 @@ impl ThunderHdmiRequestProcessor {
 
     async fn start_hdmi_input(state: ThunderState, port_id: String, req: ExtnMessage) -> bool {
         let params = AVInputStartHdmiInputParams {
-            port_id,
+            port_id: port_id.parse::<u32>().unwrap(),
             type_of_input: "HDMI".to_owned(),
         };
 
