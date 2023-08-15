@@ -96,7 +96,7 @@ impl ThunderStorageRequestProcessor {
             })
             .await;
         if response.message.get("success").is_none()
-            || !response.message["success"].as_bool().unwrap()
+            || !response.message["success"].as_bool().unwrap_or_default()
         {
             error!("{}", response.message);
             return false;
@@ -122,7 +122,7 @@ impl ThunderStorageRequestProcessor {
             })
             .await;
         if response.message.get("success").is_none()
-            || !response.message["success"].as_bool().unwrap()
+            || !response.message["success"].as_bool().unwrap_or_default()
         {
             error!("{}", response.message);
             return false;
@@ -143,7 +143,7 @@ impl ThunderStorageRequestProcessor {
             .await;
 
         if response.message.get("success").is_none()
-            || !response.message["success"].as_bool().unwrap()
+            || !response.message["success"].as_bool().unwrap_or_default()
         {
             error!("{}", response.message);
             return false;
@@ -173,7 +173,7 @@ impl ThunderStorageRequestProcessor {
         if let Some(status) = response.message["success"].as_bool() {
             if status {
                 let value_resp_res = serde_json::from_value(response.message);
-                if let Err(_) = value_resp_res {
+                if value_resp_res.is_err() {
                     debug!("{:?}", value_resp_res);
                     return false;
                 }
@@ -184,7 +184,7 @@ impl ThunderStorageRequestProcessor {
                 }
                 let parsed_res: Result<Value, serde_json::Error> =
                     serde_json::from_str(&value_resp.value);
-                if let Err(_) = parsed_res {
+                if parsed_res.is_err() {
                     debug!(
                         "Invalid json {} stored at key {}",
                         value_resp.value, data.key
