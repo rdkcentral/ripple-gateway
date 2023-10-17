@@ -36,6 +36,7 @@ pub mod handlers {
     pub mod metrics_rpc;
     pub mod parameters_rpc;
     pub mod pin_rpc;
+    pub mod player_rpc;
     pub mod privacy_rpc;
     pub mod profile_rpc;
     pub mod second_screen_rpc;

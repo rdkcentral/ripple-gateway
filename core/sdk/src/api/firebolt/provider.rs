@@ -24,6 +24,7 @@ use crate::api::device::entertainment_data::{
 use super::{
     fb_keyboard::{KeyboardSessionRequest, KeyboardSessionResponse},
     fb_pin::{PinChallengeRequest, PinChallengeResponse},
+    fb_player::{PlayerRequest, PlayerResponse},
 };
 
 pub const ACK_CHALLENGE_EVENT: &str = "acknowledgechallenge.onRequestChallenge";
@@ -33,6 +34,7 @@ pub const ACK_CHALLENGE_CAPABILITY: &str = "xrn:firebolt:capability:usergrant:ac
 #[serde(untagged)]
 pub enum ProviderRequestPayload {
     KeyboardSession(KeyboardSessionRequest),
+    Player(PlayerRequest),
     PinChallenge(PinChallengeRequest),
     AckChallenge(Challenge),
     EntityInfoRequest(EntityInfoParameters),
@@ -46,6 +48,7 @@ pub enum ProviderResponsePayload {
     ChallengeResponse(ChallengeResponse),
     PinChallengeResponse(PinChallengeResponse),
     KeyboardResult(KeyboardSessionResponse),
+    PlayerResponse(PlayerResponse),
     // TODO: assess if boxing this is a productive move: https://rust-lang.github.io/rust-clippy/master/index.html#/large_enum_variant
     EntityInfoResponse(Box<Option<EntityInfoResult>>),
     PurchasedContentResponse(PurchasedContentResult),
@@ -55,6 +58,13 @@ impl ProviderResponsePayload {
     pub fn as_keyboard_result(&self) -> Option<KeyboardSessionResponse> {
         match self {
             ProviderResponsePayload::KeyboardResult(res) => Some(res.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn as_player_response(&self) -> Option<PlayerResponse> {
+        match self {
+            ProviderResponsePayload::PlayerResponse(res) => Some(res.clone()),
             _ => None,
         }
     }

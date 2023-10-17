@@ -23,6 +23,7 @@ pub mod config;
 pub mod context;
 pub mod device;
 pub mod manifest;
+pub mod player;
 pub mod protocol;
 pub mod pubsub;
 pub mod session;
@@ -62,6 +63,7 @@ pub mod firebolt {
     pub mod fb_openrpc;
     pub mod fb_parameters;
     pub mod fb_pin;
+    pub mod fb_player;
     pub mod fb_secondscreen;
     pub mod fb_secure_storage;
     pub mod fb_telemetry;

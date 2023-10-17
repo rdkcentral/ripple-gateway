@@ -17,6 +17,7 @@
 
 use crate::{
     api::{
+        player::PlayerAdjective,
         session::{EventAdjective, SessionAdjective},
         storage_property::StorageAdjective,
     },
@@ -121,10 +122,9 @@ pub enum RippleContract {
     /// Distributor gets the ability to configure and customize the generation of
     /// the Session information based on their policies. Used by [crate::api::session::AccountSession]
     Session(SessionAdjective),
-
     RippleContext,
-
     ExtnProvider(ExtnProviderAdjective),
+    Player(PlayerAdjective),
 }
 
 pub trait ContractAdjective: serde::ser::Serialize + DeserializeOwned {
@@ -184,6 +184,7 @@ impl RippleContract {
             Self::Session(adj) => Some(adj.as_string()),
             Self::DeviceEvents(adj) => Some(adj.as_string()),
             Self::ExtnProvider(adj) => Some(adj.id.to_string()),
+            Self::Player(adj) => Some(adj.as_string()),
             _ => None,
         }
     }
@@ -207,6 +208,7 @@ impl RippleContract {
                 Self::get_contract_from_adjective::<ExtnProviderAdjective>(&adjective)
             }
             "device_events" => Self::get_contract_from_adjective::<EventAdjective>(&adjective),
+            "player" => Self::get_contract_from_adjective::<PlayerAdjective>(&adjective),
             _ => None,
         }
     }
@@ -217,6 +219,7 @@ impl RippleContract {
             Self::Session(_) => Some("session".to_owned()),
             Self::ExtnProvider(_) => Some("extn_provider".to_owned()),
             Self::DeviceEvents(_) => Some("device_events".to_owned()),
+            Self::Player(_) => Some("player".to_owned()),
             _ => None,
         }
     }
