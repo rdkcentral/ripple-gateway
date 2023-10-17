@@ -21,13 +21,15 @@ use crate::{
     state::platform_state::PlatformState,
 };
 use jsonrpsee::{core::RpcResult, proc_macros::rpc, RpcModule};
+use ripple_sdk::api::firebolt::fb_player::PlayerProviderResponse;
 use ripple_sdk::{
     api::{
         firebolt::{
             fb_general::{ListenRequest, ListenerResponse},
             fb_player::{
-                LoadRequest, LoadResponse, PlayerRequest, PlayerRequestWithContext, PlayerResponse,
-                PLAYER_BASE_PROVIDER_CAPABILITY, PLAYER_LOAD_EVENT, PLAYER_LOAD_METHOD,
+                PlayerLoadError, PlayerLoadRequest, PlayerLoadResponse, PlayerRequest,
+                PlayerRequestWithContext, PLAYER_BASE_PROVIDER_CAPABILITY, PLAYER_LOAD_EVENT,
+                PLAYER_LOAD_METHOD,
             },
             provider::ProviderResponsePayload,
         },
@@ -47,7 +49,22 @@ pub trait Player {
     ) -> RpcResult<ListenerResponse>;
 
     #[method(name = "player.load")]
-    async fn load(&self, ctx: CallContext, request: LoadRequest) -> RpcResult<LoadResponse>;
+    async fn load(
+        &self,
+        ctx: CallContext,
+        request: PlayerLoadRequest,
+    ) -> RpcResult<PlayerLoadResponse>;
+
+    #[method(name = "player.loadResponse")]
+    async fn load_response(
+        &self,
+        ctx: CallContext,
+        request: PlayerLoadResponse,
+    ) -> RpcResult<Option<()>>;
+
+    #[method(name = "player.loadError")]
+    async fn load_error(&self, ctx: CallContext, request: PlayerLoadError)
+        -> RpcResult<Option<()>>;
 }
 
 pub struct PlayerImpl {
@@ -77,18 +94,34 @@ impl PlayerServer for PlayerImpl {
         })
     }
 
-    async fn load(&self, ctx: CallContext, request: LoadRequest) -> RpcResult<LoadResponse> {
+    async fn load(
+        &self,
+        ctx: CallContext,
+        request: PlayerLoadRequest,
+    ) -> RpcResult<PlayerLoadResponse> {
         let req = PlayerRequestWithContext {
             request: PlayerRequest::Load(request),
             call_ctx: ctx,
         };
 
-        let response = self.call_player_provider(req).await?;
-        if let PlayerResponse::Load(load_response) = response {
-            return Ok(load_response);
+        match self.call_player_provider(req).await? {
+            ProviderResponsePayload::PlayerLoad(load_response) => Ok(load_response),
+            _ => Err(rpc_err("Invalid response back from provider")),
         }
+    }
 
-        Err(rpc_err("Invalid response back from provider"))
+    async fn load_response(
+        &self,
+        _ctx: CallContext,
+        resp: PlayerLoadResponse,
+    ) -> RpcResult<Option<()>> {
+        let msg = resp.to_provider_response();
+        ProviderBroker::provider_response(&self.platform_state, msg).await;
+        Ok(None)
+    }
+
+    async fn load_error(&self, _ctx: CallContext, resp: PlayerLoadError) -> RpcResult<Option<()>> {
+        self.provider_response(resp).await
     }
 }
 
@@ -96,7 +129,7 @@ impl PlayerImpl {
     async fn call_player_provider(
         &self,
         request: PlayerRequestWithContext,
-    ) -> RpcResult<PlayerResponse> {
+    ) -> RpcResult<ProviderResponsePayload> {
         let method = String::from(request.request.to_provider_method());
         let (session_tx, session_rx) = oneshot::channel::<ProviderResponsePayload>();
         let pr_msg = ProviderBrokerRequest {
@@ -110,12 +143,18 @@ impl PlayerImpl {
         };
         ProviderBroker::invoke_method(&self.platform_state, pr_msg).await;
         match session_rx.await {
-            Ok(result) => match result.as_player_response() {
-                Some(res) => Ok(res),
-                None => Err(rpc_err("Invalid response back from provider")),
-            },
+            Ok(result) => Ok(result),
             Err(_) => Err(rpc_err("Error returning back from player provider")),
         }
+    }
+
+    async fn provider_response<T>(&self, resp: T) -> RpcResult<Option<()>>
+    where
+        T: PlayerProviderResponse,
+    {
+        let msg = resp.to_provider_response();
+        ProviderBroker::provider_response(&self.platform_state, msg).await;
+        Ok(None)
     }
 }
 

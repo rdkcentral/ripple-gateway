@@ -24,7 +24,7 @@ use crate::api::device::entertainment_data::{
 use super::{
     fb_keyboard::{KeyboardSessionRequest, KeyboardSessionResponse},
     fb_pin::{PinChallengeRequest, PinChallengeResponse},
-    fb_player::{LoadRequest, PlayerResponse},
+    fb_player::{PlayerLoadError, PlayerLoadRequest, PlayerLoadResponse, PlayerResponse},
 };
 
 pub const ACK_CHALLENGE_EVENT: &str = "acknowledgechallenge.onRequestChallenge";
@@ -40,7 +40,7 @@ pub enum ProviderRequestPayload {
     PurchasedContentRequest(PurchasedContentParameters),
     Generic(String),
     // TODO look into a better way to solve this
-    PlayerLoad(LoadRequest),
+    PlayerLoad(PlayerLoadRequest),
     PlayerPlay,
 }
 
@@ -50,7 +50,8 @@ pub enum ProviderResponsePayload {
     ChallengeResponse(ChallengeResponse),
     PinChallengeResponse(PinChallengeResponse),
     KeyboardResult(KeyboardSessionResponse),
-    PlayerResponse(PlayerResponse),
+    PlayerLoad(PlayerLoadResponse),
+    PlayerLoadError(PlayerLoadError),
     // TODO: assess if boxing this is a productive move: https://rust-lang.github.io/rust-clippy/master/index.html#/large_enum_variant
     EntityInfoResponse(Box<Option<EntityInfoResult>>),
     PurchasedContentResponse(PurchasedContentResult),
@@ -66,10 +67,27 @@ impl ProviderResponsePayload {
 
     pub fn as_player_response(&self) -> Option<PlayerResponse> {
         match self {
-            ProviderResponsePayload::PlayerResponse(res) => Some(res.clone()),
+            ProviderResponsePayload::PlayerLoad(res) => Some(PlayerResponse::Load(res.clone())),
+            ProviderResponsePayload::PlayerLoadError(res) => {
+                Some(PlayerResponse::LoadError(res.clone()))
+            }
             _ => None,
         }
     }
+
+    // pub fn as_player_load_response(&self) -> Option<PlayerLoadResponse> {
+    //     match self {
+    //         ProviderResponsePayload::PlayerLoad(res) => Some(res.clone()),
+    //         _ => None,
+    //     }
+    // }
+
+    // pub fn as_player_load_error(&self) -> Option<PlayerLoadError> {
+    //     match self {
+    //         ProviderResponsePayload::PlayerLoadError(res) => Some(res.clone()),
+    //         _ => None,
+    //     }
+    // }
 
     pub fn as_pin_challenge_response(&self) -> Option<PinChallengeResponse> {
         match self {

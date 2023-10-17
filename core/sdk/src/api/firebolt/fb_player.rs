@@ -25,7 +25,7 @@ use crate::{
     framework::ripple_contract::RippleContract,
 };
 
-use super::provider::ProviderRequestPayload;
+use super::provider::{ProviderRequestPayload, ProviderResponse, ProviderResponsePayload};
 
 pub const PLAYER_LOAD_EVENT: &str = "player.onRequestLoad";
 pub const PLAYER_LOAD_METHOD: &str = "load";
@@ -33,13 +33,7 @@ pub const PLAYER_BASE_PROVIDER_CAPABILITY: &str = "xrn:firebolt:capability:playe
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum PlayerRequest {
-    Load(LoadRequest),
-    Play,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum PlayerResponse {
-    Load(LoadResponse),
+    Load(PlayerLoadRequest),
     Play,
 }
 
@@ -67,23 +61,12 @@ impl PlayerRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct LoadRequest {
+pub struct PlayerLoadRequest {
     pub player_id: String, // TODO: spec shows this prefixed with the appId - do we need to do that?
     pub locator: String,
     pub metadata: Option<HashMap<String, String>>,
     pub autoplay: Option<bool>,
 }
-
-// impl From<LoadRequestWithContext> for LoadRequest {
-//     fn from(load_req: LoadRequestWithContext) -> Self {
-//         LoadRequest {
-//             player_id: load_req.player_id,
-//             locator: load_req.locator,
-//             metadata: load_req.metadata,
-//             autoplay: load_req.autoplay,
-//         }
-//     }
-// }
 
 impl ExtnPayloadProvider for PlayerRequestWithContext {
     fn get_extn_payload(&self) -> ExtnPayload {
@@ -103,52 +86,9 @@ impl ExtnPayloadProvider for PlayerRequestWithContext {
     }
 }
 
-// impl ExtnPayloadProvider for LoadRequest {
-//     fn get_extn_payload(&self) -> ExtnPayload {
-//         ExtnPayload::Request(ExtnRequest::Player(PlayerRequest::Load(self.clone())))
-//     }
-
-//     fn get_from_payload(payload: ExtnPayload) -> Option<Self> {
-//         if let ExtnPayload::Request(ExtnRequest::Player(PlayerRequest::Load(r))) = payload {
-//             return Some(r);
-//         }
-
-//         None
-//     }
-
-//     fn contract() -> RippleContract {
-//         RippleContract::Player(crate::api::player::PlayerAdjective::Base)
-//     }
-// }
-
-// #[derive(Serialize, Deserialize, Debug, Clone)]
-// #[serde(rename_all = "camelCase")]
-// pub struct LoadRequestWithContext {
-//     pub player_id: String,
-//     pub locator: String,
-//     pub metadata: Option<HashMap<String, String>>,
-//     pub autoplay: Option<bool>,
-//     pub capability: Option<String>,
-//     pub call_ctx: CallContext,
-// }
-
-// impl ExtnPayloadProvider for LoadRequestWithContext {
-//     fn get_extn_payload(&self) -> ExtnPayload {
-//         ExtnPayload::Request(ExtnRequest::Player( crate::api::player::PlayerRequest::Load(sel)self.clone()))
-//     }
-
-//     fn get_from_payload(payload: ExtnPayload) -> Option<Self> {
-//         if let ExtnPayload::Request(ExtnRequest::Player(r)) = payload {
-//             return Some(r);
-//         }
-
-//         None
-//     }
-
-//     fn contract() -> RippleContract {
-//         RippleContract::Player(crate::api::player::PlayerAdjective::Base)
-//     }
-// }
+pub trait PlayerProviderResponse {
+    fn to_provider_response(&self) -> ProviderResponse;
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -158,26 +98,66 @@ pub struct LoadResponseResult {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct LoadResponse {
+pub struct PlayerLoadResponse {
     pub correlation_id: String,
     pub result: LoadResponseResult,
 }
 
-impl LoadResponse {
-    // pub fn get_result(&self) -> Option<bool> {
-    //     self.granted
-    // }
-
-    // pub fn get_reason(&self) -> PlayerResultReason {
-    //     self.reason.clone()
-    // }
-
+impl PlayerLoadResponse {
     pub fn new(correlation_id: String, result: LoadResponseResult) -> Self {
-        LoadResponse {
+        Self {
             correlation_id,
             result,
         }
     }
+}
+
+impl PlayerProviderResponse for PlayerLoadResponse {
+    fn to_provider_response(&self) -> ProviderResponse {
+        ProviderResponse {
+            correlation_id: self.correlation_id.clone(),
+            result: ProviderResponsePayload::PlayerLoad(self.clone()),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct LoadErrorResult {
+    pub code: u32,
+    pub message: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerLoadError {
+    pub correlation_id: String,
+    pub result: LoadResponseResult,
+}
+
+impl PlayerLoadError {
+    pub fn new(correlation_id: String, result: LoadResponseResult) -> Self {
+        Self {
+            correlation_id,
+            result,
+        }
+    }
+}
+
+impl PlayerProviderResponse for PlayerLoadError {
+    fn to_provider_response(&self) -> ProviderResponse {
+        ProviderResponse {
+            correlation_id: self.correlation_id.clone(),
+            result: ProviderResponsePayload::PlayerLoadError(self.clone()),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum PlayerResponse {
+    Load(PlayerLoadResponse),
+    LoadError(PlayerLoadError),
+    Play,
 }
 
 impl ExtnPayloadProvider for PlayerResponse {
@@ -197,21 +177,3 @@ impl ExtnPayloadProvider for PlayerResponse {
         RippleContract::Player(crate::api::player::PlayerAdjective::Base)
     }
 }
-
-// impl ExtnPayloadProvider for LoadResponse {
-//     fn get_extn_payload(&self) -> ExtnPayload {
-//         ExtnPayload::Response(ExtnResponse::Player(PlayerResponse::Load(self.clone())))
-//     }
-
-//     fn get_from_payload(payload: ExtnPayload) -> Option<Self> {
-//         if let ExtnPayload::Response(ExtnResponse::Player(PlayerResponse::Load(r))) = payload {
-//             return Some(r);
-//         }
-
-//         None
-//     }
-
-//     fn contract() -> RippleContract {
-//         RippleContract::Player(crate::api::player::PlayerAdjective::Base)
-//     }
-// }
