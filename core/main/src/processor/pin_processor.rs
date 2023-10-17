@@ -59,6 +59,7 @@ impl PinProcessor {
 impl ExtnStreamProcessor for PinProcessor {
     type STATE = PlatformState;
     type VALUE = PinChallengeRequestWithContext;
+
     fn get_state(&self) -> Self::STATE {
         self.state.clone()
     }

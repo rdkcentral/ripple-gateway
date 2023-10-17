@@ -25,29 +25,42 @@ use crate::{
     framework::ripple_contract::RippleContract,
 };
 
+use super::provider::ProviderRequestPayload;
+
 pub const PLAYER_LOAD_EVENT: &str = "player.onRequestLoad";
+pub const PLAYER_LOAD_METHOD: &str = "load";
 pub const PLAYER_BASE_PROVIDER_CAPABILITY: &str = "xrn:firebolt:capability:player:base";
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum PlayerRequestType {
+pub enum PlayerRequest {
     Load(LoadRequest),
+    Play,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum PlayerResponse {
     Load(LoadResponse),
+    Play,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct PlayerRequest {
-    pub request_type: PlayerRequestType,
+pub struct PlayerRequestWithContext {
+    pub request: PlayerRequest,
     pub call_ctx: CallContext,
 }
 
-impl PlayerRequestType {
+impl PlayerRequest {
+    pub fn to_provider_request_payload(&self) -> ProviderRequestPayload {
+        match self {
+            Self::Load(load_request) => ProviderRequestPayload::PlayerLoad(load_request.clone()),
+            Self::Play => ProviderRequestPayload::PlayerPlay,
+        }
+    }
+
     pub fn to_provider_method(&self) -> &str {
         match self {
-            Self::Load(_) => "load",
+            Self::Load(_) => PLAYER_LOAD_METHOD,
+            Self::Play => "",
         }
     }
 }
@@ -55,7 +68,7 @@ impl PlayerRequestType {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct LoadRequest {
-    pub player_id: String,
+    pub player_id: String, // TODO: spec shows this prefixed with the appId - do we need to do that?
     pub locator: String,
     pub metadata: Option<HashMap<String, String>>,
     pub autoplay: Option<bool>,
@@ -72,7 +85,7 @@ pub struct LoadRequest {
 //     }
 // }
 
-impl ExtnPayloadProvider for PlayerRequest {
+impl ExtnPayloadProvider for PlayerRequestWithContext {
     fn get_extn_payload(&self) -> ExtnPayload {
         ExtnPayload::Request(ExtnRequest::Player(self.clone()))
     }

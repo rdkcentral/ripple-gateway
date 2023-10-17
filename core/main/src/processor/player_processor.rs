@@ -18,8 +18,8 @@
 use ripple_sdk::{
     api::firebolt::{
         fb_capabilities::DenyReason,
-        fb_player::{PlayerRequest, PLAYER_BASE_PROVIDER_CAPABILITY},
-        provider::{ProviderRequestPayload, ProviderResponsePayload},
+        fb_player::{PlayerRequestWithContext, PLAYER_BASE_PROVIDER_CAPABILITY},
+        provider::ProviderResponsePayload,
     },
     async_trait::async_trait,
     extn::{
@@ -58,7 +58,7 @@ impl PlayerProcessor {
 
 impl ExtnStreamProcessor for PlayerProcessor {
     type STATE = PlatformState;
-    type VALUE = PlayerRequest;
+    type VALUE = PlayerRequestWithContext;
 
     fn get_state(&self) -> Self::STATE {
         self.state.clone()
@@ -87,12 +87,9 @@ impl ExtnRequestProcessor for PlayerProcessor {
         let (session_tx, session_rx) = oneshot::channel::<ProviderResponsePayload>();
         let pr_msg = ProviderBrokerRequest {
             capability: PLAYER_BASE_PROVIDER_CAPABILITY.to_string(),
-            method: extracted_message
-                .request_type
-                .to_provider_method()
-                .to_owned(),
+            method: extracted_message.request.to_provider_method().to_owned(),
             caller: extracted_message.call_ctx.clone().into(),
-            request: ProviderRequestPayload::Player(extracted_message),
+            request: extracted_message.request.to_provider_request_payload(),
             tx: session_tx,
             app_id: None,
         };

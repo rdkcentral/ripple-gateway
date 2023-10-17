@@ -24,7 +24,7 @@ use crate::api::device::entertainment_data::{
 use super::{
     fb_keyboard::{KeyboardSessionRequest, KeyboardSessionResponse},
     fb_pin::{PinChallengeRequest, PinChallengeResponse},
-    fb_player::{PlayerRequest, PlayerResponse},
+    fb_player::{LoadRequest, PlayerResponse},
 };
 
 pub const ACK_CHALLENGE_EVENT: &str = "acknowledgechallenge.onRequestChallenge";
@@ -34,12 +34,14 @@ pub const ACK_CHALLENGE_CAPABILITY: &str = "xrn:firebolt:capability:usergrant:ac
 #[serde(untagged)]
 pub enum ProviderRequestPayload {
     KeyboardSession(KeyboardSessionRequest),
-    Player(PlayerRequest),
     PinChallenge(PinChallengeRequest),
     AckChallenge(Challenge),
     EntityInfoRequest(EntityInfoParameters),
     PurchasedContentRequest(PurchasedContentParameters),
     Generic(String),
+    // TODO look into a better way to solve this
+    PlayerLoad(LoadRequest),
+    PlayerPlay,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

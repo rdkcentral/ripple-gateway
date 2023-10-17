@@ -16,44 +16,38 @@
 //
 
 use crate::{
-    firebolt::rpc::RippleRPCProvider, service::apps::provider_broker::ProviderBroker,
+    firebolt::rpc::RippleRPCProvider,
+    service::apps::provider_broker::{ProviderBroker, ProviderBrokerRequest},
     state::platform_state::PlatformState,
 };
 use jsonrpsee::{core::RpcResult, proc_macros::rpc, RpcModule};
-use ripple_sdk::api::{
-    firebolt::{
-        fb_general::{ListenRequest, ListenerResponse},
-        fb_player::{PlayerResponse, PLAYER_BASE_PROVIDER_CAPABILITY, PLAYER_LOAD_EVENT},
-        provider::{
-            ExternalProviderResponse, FocusRequest, ProviderResponse, ProviderResponsePayload,
+use ripple_sdk::{
+    api::{
+        firebolt::{
+            fb_general::{ListenRequest, ListenerResponse},
+            fb_player::{
+                LoadRequest, LoadResponse, PlayerRequest, PlayerRequestWithContext, PlayerResponse,
+                PLAYER_BASE_PROVIDER_CAPABILITY, PLAYER_LOAD_EVENT, PLAYER_LOAD_METHOD,
+            },
+            provider::ProviderResponsePayload,
         },
+        gateway::rpc_gateway_api::CallContext,
     },
-    gateway::rpc_gateway_api::CallContext,
+    tokio::sync::oneshot,
 };
-use ripple_sdk::async_trait::async_trait;
+use ripple_sdk::{async_trait::async_trait, utils::rpc_utils::rpc_err};
 
 #[rpc(server)]
 pub trait Player {
-    #[method(name = "player.onRequest")]
-    async fn on_request_challenge(
+    #[method(name = "player.onRequestLoad")]
+    async fn on_request_load(
         &self,
         ctx: CallContext,
         request: ListenRequest,
     ) -> RpcResult<ListenerResponse>;
 
-    #[method(name = "player.challengeFocus")]
-    async fn challenge_focus(
-        &self,
-        ctx: CallContext,
-        request: FocusRequest,
-    ) -> RpcResult<Option<()>>;
-
-    #[method(name = "player.challengeResponse")]
-    async fn challenge_response(
-        &self,
-        ctx: CallContext,
-        resp: ExternalProviderResponse<PlayerResponse>,
-    ) -> RpcResult<Option<()>>;
+    #[method(name = "player.load")]
+    async fn load(&self, ctx: CallContext, request: LoadRequest) -> RpcResult<LoadResponse>;
 }
 
 pub struct PlayerImpl {
@@ -62,7 +56,7 @@ pub struct PlayerImpl {
 
 #[async_trait]
 impl PlayerServer for PlayerImpl {
-    async fn on_request_challenge(
+    async fn on_request_load(
         &self,
         ctx: CallContext,
         request: ListenRequest,
@@ -70,8 +64,8 @@ impl PlayerServer for PlayerImpl {
         let listen = request.listen;
         ProviderBroker::register_or_unregister_provider(
             &self.platform_state,
-            String::from(PLAYER_BASE_PROVIDER_CAPABILITY),
-            String::from("challenge"),
+            PLAYER_BASE_PROVIDER_CAPABILITY.to_owned(),
+            PLAYER_LOAD_METHOD.to_owned(),
             PLAYER_LOAD_EVENT,
             ctx,
             request,
@@ -83,32 +77,45 @@ impl PlayerServer for PlayerImpl {
         })
     }
 
-    async fn challenge_response(
-        &self,
-        _ctx: CallContext,
-        resp: ExternalProviderResponse<PlayerResponse>,
-    ) -> RpcResult<Option<()>> {
-        let msg = ProviderResponse {
-            correlation_id: resp.correlation_id,
-            result: ProviderResponsePayload::PlayerResponse(resp.result),
+    async fn load(&self, ctx: CallContext, request: LoadRequest) -> RpcResult<LoadResponse> {
+        let req = PlayerRequestWithContext {
+            request: PlayerRequest::Load(request),
+            call_ctx: ctx,
         };
-        ProviderBroker::provider_response(&self.platform_state, msg).await;
-        Ok(None)
-    }
 
-    async fn challenge_focus(
+        let response = self.call_player_provider(req).await?;
+        if let PlayerResponse::Load(load_response) = response {
+            return Ok(load_response);
+        }
+
+        Err(rpc_err("Invalid response back from provider"))
+    }
+}
+
+impl PlayerImpl {
+    async fn call_player_provider(
         &self,
-        ctx: CallContext,
-        request: FocusRequest,
-    ) -> RpcResult<Option<()>> {
-        ProviderBroker::focus(
-            &self.platform_state,
-            ctx,
-            PLAYER_BASE_PROVIDER_CAPABILITY.to_string(),
-            request,
-        )
-        .await;
-        Ok(None)
+        request: PlayerRequestWithContext,
+    ) -> RpcResult<PlayerResponse> {
+        let method = String::from(request.request.to_provider_method());
+        let (session_tx, session_rx) = oneshot::channel::<ProviderResponsePayload>();
+        let pr_msg = ProviderBrokerRequest {
+            // TODO which capability this rpc method providers should come from firebolt spec
+            capability: PLAYER_BASE_PROVIDER_CAPABILITY.to_string(),
+            method,
+            caller: request.call_ctx.clone().into(),
+            request: request.request.to_provider_request_payload(),
+            tx: session_tx,
+            app_id: None, // TODO: should we be using this?
+        };
+        ProviderBroker::invoke_method(&self.platform_state, pr_msg).await;
+        match session_rx.await {
+            Ok(result) => match result.as_player_response() {
+                Some(res) => Ok(res),
+                None => Err(rpc_err("Invalid response back from provider")),
+            },
+            Err(_) => Err(rpc_err("Error returning back from player provider")),
+        }
     }
 }
 
