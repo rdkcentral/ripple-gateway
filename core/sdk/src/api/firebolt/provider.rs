@@ -25,8 +25,8 @@ use super::{
     fb_keyboard::{KeyboardSessionRequest, KeyboardSessionResponse},
     fb_pin::{PinChallengeRequest, PinChallengeResponse},
     fb_player::{
-        PlayerErrorResponse, PlayerLoadRequest, PlayerMediaSession, PlayerPlayError,
-        PlayerPlayRequest, PlayerResponse,
+        PlayerErrorResponseParams, PlayerLoadRequest, PlayerMediaSession, PlayerPlayRequest,
+        PlayerResponse, PlayerStopRequest,
     },
 };
 
@@ -45,6 +45,7 @@ pub enum ProviderRequestPayload {
     // TODO look into a better way to solve this
     PlayerLoad(PlayerLoadRequest),
     PlayerPlay(PlayerPlayRequest),
+    PlayerStop(PlayerStopRequest),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -55,9 +56,11 @@ pub enum ProviderResponsePayload {
     KeyboardResult(KeyboardSessionResponse),
     // TODO: try to compress this to Player
     PlayerLoad(PlayerMediaSession),
-    PlayerLoadError(PlayerErrorResponse),
+    PlayerLoadError(PlayerErrorResponseParams),
     PlayerPlay(PlayerMediaSession),
-    PlayerPlayError(PlayerPlayError),
+    PlayerPlayError(PlayerErrorResponseParams),
+    PlayerStop(PlayerMediaSession),
+    PlayerStopError(PlayerErrorResponseParams),
     //
     // TODO: assess if boxing this is a productive move: https://rust-lang.github.io/rust-clippy/master/index.html#/large_enum_variant
     EntityInfoResponse(Box<Option<EntityInfoResult>>),

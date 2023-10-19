@@ -21,10 +21,11 @@ use ripple_sdk::{
         firebolt::{
             fb_general::{ListenRequest, ListenerResponse},
             fb_player::{
-                PlayerErrorResponse, PlayerLoadRequest, PlayerLoadResponseParams,
-                PlayerMediaSession, PlayerPlayError, PlayerPlayRequest, PlayerPlayResponseParams,
-                PlayerRequest, PlayerRequestWithContext, PLAYER_BASE_PROVIDER_CAPABILITY,
-                PLAYER_LOAD_EVENT, PLAYER_LOAD_METHOD, PLAYER_PLAY_EVENT, PLAYER_PLAY_METHOD,
+                PlayerErrorResponseParams, PlayerLoadRequest, PlayerLoadResponseParams,
+                PlayerMediaSession, PlayerPlayRequest, PlayerPlayResponseParams, PlayerRequest,
+                PlayerRequestWithContext, PlayerStopRequest, PlayerStopResponseParams,
+                PLAYER_BASE_PROVIDER_CAPABILITY, PLAYER_LOAD_EVENT, PLAYER_LOAD_METHOD,
+                PLAYER_PLAY_EVENT, PLAYER_PLAY_METHOD, PLAYER_STOP_EVENT, PLAYER_STOP_METHOD,
             },
             provider::{ProviderResponsePayload, ToProviderResponse},
         },
@@ -68,7 +69,7 @@ pub trait Player {
     async fn load_error(
         &self,
         ctx: CallContext,
-        request: PlayerErrorResponse,
+        request: PlayerErrorResponseParams,
     ) -> RpcResult<Option<()>>;
 
     #[method(name = "player.onRequestPlay")]
@@ -93,8 +94,39 @@ pub trait Player {
     ) -> RpcResult<Option<()>>;
 
     #[method(name = "player.playError")]
-    async fn play_error(&self, ctx: CallContext, request: PlayerPlayError)
-        -> RpcResult<Option<()>>;
+    async fn play_error(
+        &self,
+        ctx: CallContext,
+        request: PlayerErrorResponseParams,
+    ) -> RpcResult<Option<()>>;
+
+    #[method(name = "player.onRequestStop")]
+    async fn on_request_stop(
+        &self,
+        ctx: CallContext,
+        request: ListenRequest,
+    ) -> RpcResult<ListenerResponse>;
+
+    #[method(name = "player.stop")]
+    async fn stop(
+        &self,
+        ctx: CallContext,
+        request: PlayerStopRequest,
+    ) -> RpcResult<PlayerMediaSession>;
+
+    #[method(name = "player.stopResponse")]
+    async fn stop_response(
+        &self,
+        ctx: CallContext,
+        request: PlayerStopResponseParams,
+    ) -> RpcResult<Option<()>>;
+
+    #[method(name = "player.stopError")]
+    async fn stop_error(
+        &self,
+        ctx: CallContext,
+        request: PlayerErrorResponseParams,
+    ) -> RpcResult<Option<()>>;
 }
 
 pub struct PlayerImpl {
@@ -151,7 +183,7 @@ impl PlayerServer for PlayerImpl {
     async fn load_error(
         &self,
         _ctx: CallContext,
-        resp: PlayerErrorResponse,
+        resp: PlayerErrorResponseParams,
     ) -> RpcResult<Option<()>> {
         self.provider_response(resp).await
     }
@@ -201,7 +233,64 @@ impl PlayerServer for PlayerImpl {
         self.provider_response(resp.response).await
     }
 
-    async fn play_error(&self, _ctx: CallContext, resp: PlayerPlayError) -> RpcResult<Option<()>> {
+    async fn play_error(
+        &self,
+        _ctx: CallContext,
+        resp: PlayerErrorResponseParams,
+    ) -> RpcResult<Option<()>> {
+        self.provider_response(resp).await
+    }
+
+    async fn on_request_stop(
+        &self,
+        ctx: CallContext,
+        request: ListenRequest,
+    ) -> RpcResult<ListenerResponse> {
+        let listen = request.listen;
+        ProviderBroker::register_or_unregister_provider(
+            &self.platform_state,
+            PLAYER_BASE_PROVIDER_CAPABILITY.to_owned(),
+            PLAYER_STOP_METHOD.to_owned(),
+            PLAYER_STOP_EVENT,
+            ctx,
+            request,
+        )
+        .await;
+        Ok(ListenerResponse {
+            listening: listen,
+            event: PLAYER_STOP_EVENT.into(),
+        })
+    }
+
+    async fn stop(
+        &self,
+        ctx: CallContext,
+        request: PlayerStopRequest,
+    ) -> RpcResult<PlayerMediaSession> {
+        let req = PlayerRequestWithContext {
+            request: PlayerRequest::Stop(request),
+            call_ctx: ctx,
+        };
+
+        match self.call_player_provider(req).await? {
+            ProviderResponsePayload::PlayerStop(stop_response) => Ok(stop_response), // TODO: spec says this should be Option<()>
+            _ => Err(rpc_err("Invalid response back from provider")),
+        }
+    }
+
+    async fn stop_response(
+        &self,
+        _ctx: CallContext,
+        resp: PlayerStopResponseParams,
+    ) -> RpcResult<Option<()>> {
+        self.provider_response(resp.response).await
+    }
+
+    async fn stop_error(
+        &self,
+        _ctx: CallContext,
+        resp: PlayerErrorResponseParams,
+    ) -> RpcResult<Option<()>> {
         self.provider_response(resp).await
     }
 }
