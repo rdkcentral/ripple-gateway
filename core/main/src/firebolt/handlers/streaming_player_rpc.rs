@@ -49,166 +49,29 @@ use crate::{
 };
 
 #[rpc(server)]
-pub trait Player {
-    #[method(name = "player.onRequestLoad")]
-    async fn on_request_load(
-        &self,
-        ctx: CallContext,
-        request: ListenRequest,
-    ) -> RpcResult<ListenerResponse>;
-
-    #[method(name = "player.load")]
-    async fn load(
-        &self,
-        ctx: CallContext,
-        request: PlayerLoadRequest,
-    ) -> RpcResult<PlayerMediaSession>;
-
-    #[method(name = "player.loadResponse")]
-    async fn load_response(
-        &self,
-        ctx: CallContext,
-        request: PlayerLoadResponseParams,
-    ) -> RpcResult<Option<()>>;
-
-    #[method(name = "player.loadError")]
-    async fn load_error(
-        &self,
-        ctx: CallContext,
-        request: PlayerErrorResponseParams,
-    ) -> RpcResult<Option<()>>;
-
-    #[method(name = "player.onRequestPlay")]
-    async fn on_request_play(
-        &self,
-        ctx: CallContext,
-        request: ListenRequest,
-    ) -> RpcResult<ListenerResponse>;
-
-    #[method(name = "player.play")]
-    async fn play(
-        &self,
-        ctx: CallContext,
-        request: PlayerPlayRequest,
-    ) -> RpcResult<PlayerMediaSession>;
-
-    #[method(name = "player.playResponse")]
-    async fn play_response(
-        &self,
-        ctx: CallContext,
-        request: PlayerPlayResponseParams,
-    ) -> RpcResult<Option<()>>;
-
-    #[method(name = "player.playError")]
-    async fn play_error(
-        &self,
-        ctx: CallContext,
-        request: PlayerErrorResponseParams,
-    ) -> RpcResult<Option<()>>;
-
-    #[method(name = "player.onRequestStop")]
-    async fn on_request_stop(
-        &self,
-        ctx: CallContext,
-        request: ListenRequest,
-    ) -> RpcResult<ListenerResponse>;
-
-    #[method(name = "player.stop")]
-    async fn stop(
-        &self,
-        ctx: CallContext,
-        request: PlayerStopRequest,
-    ) -> RpcResult<PlayerMediaSession>;
-
-    #[method(name = "player.stopResponse")]
-    async fn stop_response(
-        &self,
-        ctx: CallContext,
-        request: PlayerStopResponseParams,
-    ) -> RpcResult<Option<()>>;
-
-    #[method(name = "player.stopError")]
-    async fn stop_error(
-        &self,
-        ctx: CallContext,
-        request: PlayerErrorResponseParams,
-    ) -> RpcResult<Option<()>>;
-
-    #[method(name = "player.onRequestStatus")]
-    async fn on_request_status(
-        &self,
-        ctx: CallContext,
-        request: ListenRequest,
-    ) -> RpcResult<ListenerResponse>;
-
-    #[method(name = "player.status")]
-    async fn status(
-        &self,
-        ctx: CallContext,
-        request: PlayerStatusRequest,
-    ) -> RpcResult<PlayerStatus>;
-
-    #[method(name = "player.statusResponse")]
-    async fn status_response(
-        &self,
-        ctx: CallContext,
-        request: PlayerStatusResponseParams,
-    ) -> RpcResult<Option<()>>;
-
-    #[method(name = "player.statusError")]
-    async fn status_error(
-        &self,
-        ctx: CallContext,
-        request: PlayerErrorResponseParams,
-    ) -> RpcResult<Option<()>>;
-
-    #[method(name = "player.onRequestProgress")]
-    async fn on_request_progress(
-        &self,
-        ctx: CallContext,
-        request: ListenRequest,
-    ) -> RpcResult<ListenerResponse>;
-
-    #[method(name = "player.progress")]
-    async fn progress(
-        &self,
-        ctx: CallContext,
-        request: PlayerProgressRequest,
-    ) -> RpcResult<PlayerProgress>;
-
-    #[method(name = "player.progressResponse")]
-    async fn progress_response(
-        &self,
-        ctx: CallContext,
-        request: PlayerProgressResponseParams,
-    ) -> RpcResult<Option<()>>;
-
-    #[method(name = "player.progressError")]
-    async fn progress_error(
-        &self,
-        ctx: CallContext,
-        request: PlayerErrorResponseParams,
-    ) -> RpcResult<Option<()>>;
-    // TODO move streaming player to own module
-    #[method(name = "streamingplayer.onRequestCreate")]
+pub trait StreamingPlayer {
+    #[method(name = "streamingPlayer.onRequestCreate")]
     async fn on_request_streaming_player_create(
         &self,
         ctx: CallContext,
         request: ListenRequest,
     ) -> RpcResult<ListenerResponse>;
 
-    #[method(name = "streamingplayer.create")]
-    async fn streaming_player_create(&self, ctx: CallContext)
-        -> RpcResult<StreamingPlayerInstance>;
+    #[method(name = "streamingPlayer.create")]
+    async fn streaming_player_create(
+        &self,
+        ctx: CallContext,
+        request: StreamingPlayerCreateRequest,
+    ) -> RpcResult<StreamingPlayerInstance>;
 
-    #[method(name = "streamingplayer.createResponse")]
+    #[method(name = "streamingPlayer.createResponse")]
     async fn streaming_player_create_response(
         &self,
         ctx: CallContext,
         request: StreamingPlayerCreateResponseParams,
     ) -> RpcResult<Option<()>>;
 
-    #[method(name = "streamingplayer.createError")]
+    #[method(name = "streamingPlayer.createError")]
     async fn streaming_player_create_error(
         &self,
         ctx: CallContext,
@@ -526,9 +389,10 @@ impl PlayerServer for PlayerImpl {
     async fn streaming_player_create(
         &self,
         ctx: CallContext,
+        request: StreamingPlayerCreateRequest,
     ) -> RpcResult<StreamingPlayerInstance> {
         let req = PlayerRequestWithContext {
-            request: PlayerRequest::StreamingPlayerCreate(StreamingPlayerCreateRequest),
+            request: PlayerRequest::StreamingPlayerCreate(request),
             call_ctx: ctx,
         };
 

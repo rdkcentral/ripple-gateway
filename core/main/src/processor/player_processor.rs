@@ -28,6 +28,7 @@ use ripple_sdk::{
         },
         extn_client_message::{ExtnMessage, ExtnResponse},
     },
+    log::debug,
     tokio::sync::{
         mpsc::{Receiver as MReceiver, Sender as MSender},
         oneshot,
@@ -84,6 +85,7 @@ impl ExtnRequestProcessor for PlayerProcessor {
         msg: ExtnMessage,
         extracted_message: Self::VALUE,
     ) -> bool {
+        debug!("YES I AM USED");
         let (session_tx, session_rx) = oneshot::channel::<ProviderResponsePayload>();
         let pr_msg = ProviderBrokerRequest {
             capability: PLAYER_BASE_PROVIDER_CAPABILITY.to_string(),

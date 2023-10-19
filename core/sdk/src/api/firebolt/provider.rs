@@ -27,12 +27,14 @@ use super::{
     fb_player::{
         PlayerErrorResponseParams, PlayerLoadRequest, PlayerMediaSession, PlayerPlayRequest,
         PlayerProgress, PlayerProgressRequest, PlayerResponse, PlayerStatus, PlayerStatusRequest,
-        PlayerStopRequest,
+        PlayerStopRequest, StreamingPlayerCreateRequest, StreamingPlayerInstance,
     },
 };
 
 pub const ACK_CHALLENGE_EVENT: &str = "acknowledgechallenge.onRequestChallenge";
 pub const ACK_CHALLENGE_CAPABILITY: &str = "xrn:firebolt:capability:usergrant:acknowledgechallenge";
+
+// TODO: move the provider error structs to here
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
@@ -49,6 +51,7 @@ pub enum ProviderRequestPayload {
     PlayerStop(PlayerStopRequest),
     PlayerStatus(PlayerStatusRequest),
     PlayerProgress(PlayerProgressRequest),
+    StreamingPlayerCreate(StreamingPlayerCreateRequest),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -68,6 +71,8 @@ pub enum ProviderResponsePayload {
     PlayerStatusError(PlayerErrorResponseParams),
     PlayerProgress(PlayerProgress),
     PlayerProgressError(PlayerErrorResponseParams),
+    StreamingPlayerCreate(StreamingPlayerInstance),
+    StreamingPlayerCreateError(PlayerErrorResponseParams),
     //
     // TODO: assess if boxing this is a productive move: https://rust-lang.github.io/rust-clippy/master/index.html#/large_enum_variant
     EntityInfoResponse(Box<Option<EntityInfoResult>>),

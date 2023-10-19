@@ -39,8 +39,11 @@ pub const PLAYER_STATUS_EVENT: &str = "player.onRequestStatus";
 pub const PLAYER_STATUS_METHOD: &str = "status";
 pub const PLAYER_PROGRESS_EVENT: &str = "player.onRequestProgress";
 pub const PLAYER_PROGRESS_METHOD: &str = "progress";
+pub const STREAMING_PLAYER_CREATE_EVENT: &str = "streamingplayer.onRequestCreate";
+pub const STREAMING_PLAYER_CREATE_METHOD: &str = "progress";
 
 pub const PLAYER_BASE_PROVIDER_CAPABILITY: &str = "xrn:firebolt:capability:player:base";
+pub const PLAYER_STREAMING_PROVIDER_CAPABILITY: &str = "xrn:firebolt:capability:player:streaming";
 
 // TODO: track playerIds to app ids, validate playerIds and add errors for unfound and invalid ids
 // TODO: support error responses
@@ -54,6 +57,7 @@ pub enum PlayerRequest {
     Stop(PlayerStopRequest),
     Status(PlayerStatusRequest),
     Progress(PlayerProgressRequest),
+    StreamingPlayerCreate(StreamingPlayerCreateRequest), // TODO: is empty strcut a bit redundant?
 }
 
 impl PlayerRequest {
@@ -68,6 +72,9 @@ impl PlayerRequest {
             Self::Progress(progress_request) => {
                 ProviderRequestPayload::PlayerProgress(progress_request.clone())
             }
+            Self::StreamingPlayerCreate(create_request) => {
+                ProviderRequestPayload::StreamingPlayerCreate(create_request.clone())
+            }
         }
     }
 
@@ -78,6 +85,7 @@ impl PlayerRequest {
             Self::Stop(_) => PLAYER_STOP_METHOD,
             Self::Status(_) => PLAYER_STATUS_METHOD,
             Self::Progress(_) => PLAYER_PROGRESS_METHOD,
+            Self::StreamingPlayerCreate(_) => PLAYER_PROGRESS_METHOD,
         }
     }
 }
@@ -139,6 +147,10 @@ pub struct PlayerProgressRequest {
     pub player_id: String, // TODO: spec shows this prefixed with the appId - do we need to do that?
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct StreamingPlayerCreateRequest;
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum PlayerProviderResponse {
     // TODO: do we really need all these variants?
@@ -152,6 +164,8 @@ pub enum PlayerProviderResponse {
     StatusError(PlayerErrorResponseParams),
     Progress(PlayerProgressResponse),
     ProgressError(PlayerErrorResponseParams),
+    StreamingPlayerCreate(StreamingPlayerCreateResponse),
+    StreamingPlayerCreateError(PlayerErrorResponseParams),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -217,6 +231,7 @@ pub struct PlayerStatus {
     pub state: PlayerStatusState,
     pub blocked_reason: Option<PlayerStatusBlockedReason>,
 }
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerProgress {
@@ -225,6 +240,13 @@ pub struct PlayerProgress {
     pub position: u32,
     pub end_position: u32,
     pub live_sync_time: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct StreamingPlayerInstance {
+    pub player_id: String,
+    pub window_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -410,6 +432,37 @@ impl ToProviderResponse for PlayerProgressResponse {
         ProviderResponse {
             correlation_id: self.correlation_id.clone(),
             result: ProviderResponsePayload::PlayerProgress(self.result.clone()),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct StreamingPlayerCreateResponseParams {
+    pub response: StreamingPlayerCreateResponse,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct StreamingPlayerCreateResponse {
+    pub correlation_id: String,
+    pub result: StreamingPlayerInstance,
+}
+
+impl StreamingPlayerCreateResponse {
+    pub fn new(correlation_id: String, result: StreamingPlayerInstance) -> Self {
+        Self {
+            correlation_id,
+            result,
+        }
+    }
+}
+
+impl ToProviderResponse for StreamingPlayerCreateResponse {
+    fn to_provider_response(&self) -> ProviderResponse {
+        ProviderResponse {
+            correlation_id: self.correlation_id.clone(),
+            result: ProviderResponsePayload::StreamingPlayerCreate(self.result.clone()),
         }
     }
 }
