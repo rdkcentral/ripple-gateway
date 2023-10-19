@@ -171,6 +171,12 @@ impl ToProviderResponse for PlayerErrorResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct PlayerPlayResponseParams {
+    pub response: PlayerPlayResponse,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct PlayerPlayResponse {
     pub correlation_id: String,
     pub result: PlayerMediaSession,
@@ -189,7 +195,7 @@ impl ToProviderResponse for PlayerPlayResponse {
     fn to_provider_response(&self) -> ProviderResponse {
         ProviderResponse {
             correlation_id: self.correlation_id.clone(),
-            result: ProviderResponsePayload::PlayerPlay(self.clone()),
+            result: ProviderResponsePayload::PlayerPlay(self.result.clone()),
         }
     }
 }

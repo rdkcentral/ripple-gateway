@@ -26,7 +26,7 @@ use super::{
     fb_pin::{PinChallengeRequest, PinChallengeResponse},
     fb_player::{
         PlayerErrorResponse, PlayerLoadRequest, PlayerMediaSession, PlayerPlayError,
-        PlayerPlayRequest, PlayerPlayResponse, PlayerResponse,
+        PlayerPlayRequest, PlayerResponse,
     },
 };
 
@@ -56,7 +56,7 @@ pub enum ProviderResponsePayload {
     // TODO: try to compress this to Player
     PlayerLoad(PlayerMediaSession),
     PlayerLoadError(PlayerErrorResponse),
-    PlayerPlay(PlayerPlayResponse),
+    PlayerPlay(PlayerMediaSession),
     PlayerPlayError(PlayerPlayError),
     //
     // TODO: assess if boxing this is a productive move: https://rust-lang.github.io/rust-clippy/master/index.html#/large_enum_variant
@@ -64,6 +64,7 @@ pub enum ProviderResponsePayload {
     PurchasedContentResponse(PurchasedContentResult),
 }
 
+// TODO: could this be replaced with Into trait?
 impl ProviderResponsePayload {
     pub fn as_keyboard_result(&self) -> Option<KeyboardSessionResponse> {
         match self {
@@ -74,30 +75,11 @@ impl ProviderResponsePayload {
 
     pub fn as_player_response(&self) -> Option<PlayerResponse> {
         match self {
-            ProviderResponsePayload::PlayerPlay(res) => {
-                Some(PlayerResponse::Play(res.result.clone()))
-            }
+            ProviderResponsePayload::PlayerPlay(res) => Some(PlayerResponse::Play(res.clone())),
             ProviderResponsePayload::PlayerLoad(res) => Some(PlayerResponse::Load(res.clone())),
-            // ProviderResponsePayload::PlayerLoadError(res) => {
-            //     Some(PlayerProviderResponse::LoadError(res.clone()))
-            // }
             _ => None,
         }
     }
-
-    // pub fn as_player_load_response(&self) -> Option<PlayerLoadResponse> {
-    //     match self {
-    //         ProviderResponsePayload::PlayerLoad(res) => Some(res.clone()),
-    //         _ => None,
-    //     }
-    // }
-
-    // pub fn as_player_load_error(&self) -> Option<PlayerLoadError> {
-    //     match self {
-    //         ProviderResponsePayload::PlayerLoadError(res) => Some(res.clone()),
-    //         _ => None,
-    //     }
-    // }
 
     pub fn as_pin_challenge_response(&self) -> Option<PinChallengeResponse> {
         match self {
@@ -159,10 +141,6 @@ pub trait ToProviderResponse {
 #[serde(rename_all = "camelCase")]
 pub struct ProviderResponseParams {
     pub response: ProviderResponse,
-}
-
-pub trait ToProviderResponseParams {
-    fn to_provider_response_params(&self) -> ProviderResponseParams;
 }
 
 #[derive(Serialize, Deserialize, Debug)]

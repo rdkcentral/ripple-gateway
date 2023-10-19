@@ -15,34 +15,31 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-use crate::{
-    firebolt::rpc::RippleRPCProvider,
-    service::apps::provider_broker::{ProviderBroker, ProviderBrokerRequest},
-    state::platform_state::PlatformState,
-};
 use jsonrpsee::{core::RpcResult, proc_macros::rpc, RpcModule};
-use ripple_sdk::api::firebolt::{
-    fb_player::{
-        PlayerLoadResponseParams, PlayerMediaSession, PlayerPlayError, PlayerPlayRequest,
-        PlayerPlayResponse, PLAYER_PLAY_EVENT, PLAYER_PLAY_METHOD,
-    },
-    provider::ToProviderResponse,
-};
 use ripple_sdk::{
     api::{
         firebolt::{
             fb_general::{ListenRequest, ListenerResponse},
             fb_player::{
-                PlayerErrorResponse, PlayerLoadRequest, PlayerRequest, PlayerRequestWithContext,
-                PLAYER_BASE_PROVIDER_CAPABILITY, PLAYER_LOAD_EVENT, PLAYER_LOAD_METHOD,
+                PlayerErrorResponse, PlayerLoadRequest, PlayerLoadResponseParams,
+                PlayerMediaSession, PlayerPlayError, PlayerPlayRequest, PlayerPlayResponseParams,
+                PlayerRequest, PlayerRequestWithContext, PLAYER_BASE_PROVIDER_CAPABILITY,
+                PLAYER_LOAD_EVENT, PLAYER_LOAD_METHOD, PLAYER_PLAY_EVENT, PLAYER_PLAY_METHOD,
             },
-            provider::ProviderResponsePayload,
+            provider::{ProviderResponsePayload, ToProviderResponse},
         },
         gateway::rpc_gateway_api::CallContext,
     },
+    async_trait::async_trait,
     tokio::sync::oneshot,
+    utils::rpc_utils::rpc_err,
 };
-use ripple_sdk::{async_trait::async_trait, utils::rpc_utils::rpc_err};
+
+use crate::{
+    firebolt::rpc::RippleRPCProvider,
+    service::apps::provider_broker::{ProviderBroker, ProviderBrokerRequest},
+    state::platform_state::PlatformState,
+};
 
 #[rpc(server)]
 pub trait Player {
@@ -86,13 +83,13 @@ pub trait Player {
         &self,
         ctx: CallContext,
         request: PlayerPlayRequest,
-    ) -> RpcResult<PlayerPlayResponse>;
+    ) -> RpcResult<PlayerMediaSession>;
 
     #[method(name = "player.playResponse")]
     async fn play_response(
         &self,
         ctx: CallContext,
-        request: PlayerPlayResponse,
+        request: PlayerPlayResponseParams,
     ) -> RpcResult<Option<()>>;
 
     #[method(name = "player.playError")]
@@ -184,15 +181,14 @@ impl PlayerServer for PlayerImpl {
         &self,
         ctx: CallContext,
         request: PlayerPlayRequest,
-    ) -> RpcResult<PlayerPlayResponse> {
+    ) -> RpcResult<PlayerMediaSession> {
         let req = PlayerRequestWithContext {
             request: PlayerRequest::Play(request),
             call_ctx: ctx,
         };
 
         match self.call_player_provider(req).await? {
-            ProviderResponsePayload::PlayerPlay(play_response) => Ok(play_response),
-            // TODO: ProviderResponsePayload::PlayerPlayError(play_error) => Ok(play_error),
+            ProviderResponsePayload::PlayerPlay(play_response) => Ok(play_response), // TODO: spec says this should be Option<()>
             _ => Err(rpc_err("Invalid response back from provider")),
         }
     }
@@ -200,11 +196,9 @@ impl PlayerServer for PlayerImpl {
     async fn play_response(
         &self,
         _ctx: CallContext,
-        resp: PlayerPlayResponse,
+        resp: PlayerPlayResponseParams,
     ) -> RpcResult<Option<()>> {
-        let msg = resp.to_provider_response();
-        ProviderBroker::provider_response(&self.platform_state, msg).await;
-        Ok(None)
+        self.provider_response(resp.response).await
     }
 
     async fn play_error(&self, _ctx: CallContext, resp: PlayerPlayError) -> RpcResult<Option<()>> {
