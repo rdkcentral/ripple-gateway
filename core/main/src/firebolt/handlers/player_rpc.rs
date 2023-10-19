@@ -21,15 +21,20 @@ use crate::{
     state::platform_state::PlatformState,
 };
 use jsonrpsee::{core::RpcResult, proc_macros::rpc, RpcModule};
-use ripple_sdk::api::firebolt::fb_player::PlayerProviderResponse;
+use ripple_sdk::api::firebolt::{
+    fb_player::{
+        PlayerLoadResponseParams, PlayerMediaSession, PlayerPlayError, PlayerPlayRequest,
+        PlayerPlayResponse, PLAYER_PLAY_EVENT, PLAYER_PLAY_METHOD,
+    },
+    provider::ToProviderResponse,
+};
 use ripple_sdk::{
     api::{
         firebolt::{
             fb_general::{ListenRequest, ListenerResponse},
             fb_player::{
-                PlayerLoadError, PlayerLoadRequest, PlayerLoadResponse, PlayerRequest,
-                PlayerRequestWithContext, PLAYER_BASE_PROVIDER_CAPABILITY, PLAYER_LOAD_EVENT,
-                PLAYER_LOAD_METHOD,
+                PlayerErrorResponse, PlayerLoadRequest, PlayerRequest, PlayerRequestWithContext,
+                PLAYER_BASE_PROVIDER_CAPABILITY, PLAYER_LOAD_EVENT, PLAYER_LOAD_METHOD,
             },
             provider::ProviderResponsePayload,
         },
@@ -53,17 +58,45 @@ pub trait Player {
         &self,
         ctx: CallContext,
         request: PlayerLoadRequest,
-    ) -> RpcResult<PlayerLoadResponse>;
+    ) -> RpcResult<PlayerMediaSession>;
 
     #[method(name = "player.loadResponse")]
     async fn load_response(
         &self,
         ctx: CallContext,
-        request: PlayerLoadResponse,
+        request: PlayerLoadResponseParams,
     ) -> RpcResult<Option<()>>;
 
     #[method(name = "player.loadError")]
-    async fn load_error(&self, ctx: CallContext, request: PlayerLoadError)
+    async fn load_error(
+        &self,
+        ctx: CallContext,
+        request: PlayerErrorResponse,
+    ) -> RpcResult<Option<()>>;
+
+    #[method(name = "player.onRequestPlay")]
+    async fn on_request_play(
+        &self,
+        ctx: CallContext,
+        request: ListenRequest,
+    ) -> RpcResult<ListenerResponse>;
+
+    #[method(name = "player.play")]
+    async fn play(
+        &self,
+        ctx: CallContext,
+        request: PlayerPlayRequest,
+    ) -> RpcResult<PlayerPlayResponse>;
+
+    #[method(name = "player.playResponse")]
+    async fn play_response(
+        &self,
+        ctx: CallContext,
+        request: PlayerPlayResponse,
+    ) -> RpcResult<Option<()>>;
+
+    #[method(name = "player.playError")]
+    async fn play_error(&self, ctx: CallContext, request: PlayerPlayError)
         -> RpcResult<Option<()>>;
 }
 
@@ -98,7 +131,7 @@ impl PlayerServer for PlayerImpl {
         &self,
         ctx: CallContext,
         request: PlayerLoadRequest,
-    ) -> RpcResult<PlayerLoadResponse> {
+    ) -> RpcResult<PlayerMediaSession> {
         let req = PlayerRequestWithContext {
             request: PlayerRequest::Load(request),
             call_ctx: ctx,
@@ -113,14 +146,68 @@ impl PlayerServer for PlayerImpl {
     async fn load_response(
         &self,
         _ctx: CallContext,
-        resp: PlayerLoadResponse,
+        resp: PlayerLoadResponseParams,
+    ) -> RpcResult<Option<()>> {
+        self.provider_response(resp.response).await
+    }
+
+    async fn load_error(
+        &self,
+        _ctx: CallContext,
+        resp: PlayerErrorResponse,
+    ) -> RpcResult<Option<()>> {
+        self.provider_response(resp).await
+    }
+
+    async fn on_request_play(
+        &self,
+        ctx: CallContext,
+        request: ListenRequest,
+    ) -> RpcResult<ListenerResponse> {
+        let listen = request.listen;
+        ProviderBroker::register_or_unregister_provider(
+            &self.platform_state,
+            PLAYER_BASE_PROVIDER_CAPABILITY.to_owned(),
+            PLAYER_PLAY_METHOD.to_owned(),
+            PLAYER_PLAY_EVENT,
+            ctx,
+            request,
+        )
+        .await;
+        Ok(ListenerResponse {
+            listening: listen,
+            event: PLAYER_PLAY_EVENT.into(),
+        })
+    }
+
+    async fn play(
+        &self,
+        ctx: CallContext,
+        request: PlayerPlayRequest,
+    ) -> RpcResult<PlayerPlayResponse> {
+        let req = PlayerRequestWithContext {
+            request: PlayerRequest::Play(request),
+            call_ctx: ctx,
+        };
+
+        match self.call_player_provider(req).await? {
+            ProviderResponsePayload::PlayerPlay(play_response) => Ok(play_response),
+            // TODO: ProviderResponsePayload::PlayerPlayError(play_error) => Ok(play_error),
+            _ => Err(rpc_err("Invalid response back from provider")),
+        }
+    }
+
+    async fn play_response(
+        &self,
+        _ctx: CallContext,
+        resp: PlayerPlayResponse,
     ) -> RpcResult<Option<()>> {
         let msg = resp.to_provider_response();
         ProviderBroker::provider_response(&self.platform_state, msg).await;
         Ok(None)
     }
 
-    async fn load_error(&self, _ctx: CallContext, resp: PlayerLoadError) -> RpcResult<Option<()>> {
+    async fn play_error(&self, _ctx: CallContext, resp: PlayerPlayError) -> RpcResult<Option<()>> {
         self.provider_response(resp).await
     }
 }
@@ -150,7 +237,7 @@ impl PlayerImpl {
 
     async fn provider_response<T>(&self, resp: T) -> RpcResult<Option<()>>
     where
-        T: PlayerProviderResponse,
+        T: ToProviderResponse,
     {
         let msg = resp.to_provider_response();
         ProviderBroker::provider_response(&self.platform_state, msg).await;

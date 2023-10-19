@@ -24,7 +24,10 @@ use crate::api::device::entertainment_data::{
 use super::{
     fb_keyboard::{KeyboardSessionRequest, KeyboardSessionResponse},
     fb_pin::{PinChallengeRequest, PinChallengeResponse},
-    fb_player::{PlayerLoadError, PlayerLoadRequest, PlayerLoadResponse, PlayerResponse},
+    fb_player::{
+        PlayerErrorResponse, PlayerLoadRequest, PlayerMediaSession, PlayerPlayError,
+        PlayerPlayRequest, PlayerPlayResponse, PlayerResponse,
+    },
 };
 
 pub const ACK_CHALLENGE_EVENT: &str = "acknowledgechallenge.onRequestChallenge";
@@ -41,7 +44,7 @@ pub enum ProviderRequestPayload {
     Generic(String),
     // TODO look into a better way to solve this
     PlayerLoad(PlayerLoadRequest),
-    PlayerPlay,
+    PlayerPlay(PlayerPlayRequest),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -50,8 +53,12 @@ pub enum ProviderResponsePayload {
     ChallengeResponse(ChallengeResponse),
     PinChallengeResponse(PinChallengeResponse),
     KeyboardResult(KeyboardSessionResponse),
-    PlayerLoad(PlayerLoadResponse),
-    PlayerLoadError(PlayerLoadError),
+    // TODO: try to compress this to Player
+    PlayerLoad(PlayerMediaSession),
+    PlayerLoadError(PlayerErrorResponse),
+    PlayerPlay(PlayerPlayResponse),
+    PlayerPlayError(PlayerPlayError),
+    //
     // TODO: assess if boxing this is a productive move: https://rust-lang.github.io/rust-clippy/master/index.html#/large_enum_variant
     EntityInfoResponse(Box<Option<EntityInfoResult>>),
     PurchasedContentResponse(PurchasedContentResult),
@@ -67,10 +74,13 @@ impl ProviderResponsePayload {
 
     pub fn as_player_response(&self) -> Option<PlayerResponse> {
         match self {
-            ProviderResponsePayload::PlayerLoad(res) => Some(PlayerResponse::Load(res.clone())),
-            ProviderResponsePayload::PlayerLoadError(res) => {
-                Some(PlayerResponse::LoadError(res.clone()))
+            ProviderResponsePayload::PlayerPlay(res) => {
+                Some(PlayerResponse::Play(res.result.clone()))
             }
+            ProviderResponsePayload::PlayerLoad(res) => Some(PlayerResponse::Load(res.clone())),
+            // ProviderResponsePayload::PlayerLoadError(res) => {
+            //     Some(PlayerProviderResponse::LoadError(res.clone()))
+            // }
             _ => None,
         }
     }
@@ -139,6 +149,20 @@ pub struct ProviderRequest {
 pub struct ProviderResponse {
     pub correlation_id: String,
     pub result: ProviderResponsePayload,
+}
+
+pub trait ToProviderResponse {
+    fn to_provider_response(&self) -> ProviderResponse;
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderResponseParams {
+    pub response: ProviderResponse,
+}
+
+pub trait ToProviderResponseParams {
+    fn to_provider_response_params(&self) -> ProviderResponseParams;
 }
 
 #[derive(Serialize, Deserialize, Debug)]
