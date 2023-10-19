@@ -37,6 +37,8 @@ pub const PLAYER_STOP_EVENT: &str = "player.onRequestStop";
 pub const PLAYER_STOP_METHOD: &str = "stop";
 pub const PLAYER_STATUS_EVENT: &str = "player.onRequestStatus";
 pub const PLAYER_STATUS_METHOD: &str = "status";
+pub const PLAYER_PROGRESS_EVENT: &str = "player.onRequestProgress";
+pub const PLAYER_PROGRESS_METHOD: &str = "progress";
 
 pub const PLAYER_BASE_PROVIDER_CAPABILITY: &str = "xrn:firebolt:capability:player:base";
 
@@ -51,6 +53,7 @@ pub enum PlayerRequest {
     Play(PlayerPlayRequest),
     Stop(PlayerStopRequest),
     Status(PlayerStatusRequest),
+    Progress(PlayerProgressRequest),
 }
 
 impl PlayerRequest {
@@ -62,6 +65,9 @@ impl PlayerRequest {
             Self::Status(status_request) => {
                 ProviderRequestPayload::PlayerStatus(status_request.clone())
             }
+            Self::Progress(progress_request) => {
+                ProviderRequestPayload::PlayerProgress(progress_request.clone())
+            }
         }
     }
 
@@ -71,6 +77,7 @@ impl PlayerRequest {
             Self::Play(_) => PLAYER_PLAY_METHOD,
             Self::Stop(_) => PLAYER_STOP_METHOD,
             Self::Status(_) => PLAYER_STATUS_METHOD,
+            Self::Progress(_) => PLAYER_PROGRESS_METHOD,
         }
     }
 }
@@ -126,16 +133,25 @@ pub struct PlayerStatusRequest {
     pub player_id: String, // TODO: spec shows this prefixed with the appId - do we need to do that?
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerProgressRequest {
+    pub player_id: String, // TODO: spec shows this prefixed with the appId - do we need to do that?
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum PlayerProviderResponse {
+    // TODO: do we really need all these variants?
     Load(PlayerLoadResponse),
     LoadError(PlayerErrorResponseParams),
     Play(PlayerPlayResponse),
     PlayError(PlayerErrorResponseParams),
-    Stop(PlayerPlayResponse),
+    Stop(PlayerStopResponse),
     StopError(PlayerErrorResponseParams),
-    Status(PlayerPlayResponse),
+    Status(PlayerStatusResponse),
     StatusError(PlayerErrorResponseParams),
+    Progress(PlayerProgressResponse),
+    ProgressError(PlayerErrorResponseParams),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -200,6 +216,15 @@ pub struct PlayerStatus {
     pub media_session_id: String,
     pub state: PlayerStatusState,
     pub blocked_reason: Option<PlayerStatusBlockedReason>,
+}
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerProgress {
+    pub speed: u32,
+    pub start_position: u32,
+    pub position: u32,
+    pub end_position: u32,
+    pub live_sync_time: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -354,6 +379,37 @@ impl ToProviderResponse for PlayerStatusResponse {
         ProviderResponse {
             correlation_id: self.correlation_id.clone(),
             result: ProviderResponsePayload::PlayerStatus(self.result.clone()),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerProgressResponseParams {
+    pub response: PlayerProgressResponse,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerProgressResponse {
+    pub correlation_id: String,
+    pub result: PlayerProgress,
+}
+
+impl PlayerProgressResponse {
+    pub fn new(correlation_id: String, result: PlayerProgress) -> Self {
+        Self {
+            correlation_id,
+            result,
+        }
+    }
+}
+
+impl ToProviderResponse for PlayerProgressResponse {
+    fn to_provider_response(&self) -> ProviderResponse {
+        ProviderResponse {
+            correlation_id: self.correlation_id.clone(),
+            result: ProviderResponsePayload::PlayerProgress(self.result.clone()),
         }
     }
 }

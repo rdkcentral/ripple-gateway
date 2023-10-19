@@ -26,7 +26,8 @@ use super::{
     fb_pin::{PinChallengeRequest, PinChallengeResponse},
     fb_player::{
         PlayerErrorResponseParams, PlayerLoadRequest, PlayerMediaSession, PlayerPlayRequest,
-        PlayerResponse, PlayerStatus, PlayerStatusRequest, PlayerStopRequest,
+        PlayerProgress, PlayerProgressRequest, PlayerResponse, PlayerStatus, PlayerStatusRequest,
+        PlayerStopRequest,
     },
 };
 
@@ -47,6 +48,7 @@ pub enum ProviderRequestPayload {
     PlayerPlay(PlayerPlayRequest),
     PlayerStop(PlayerStopRequest),
     PlayerStatus(PlayerStatusRequest),
+    PlayerProgress(PlayerProgressRequest),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -64,6 +66,8 @@ pub enum ProviderResponsePayload {
     PlayerStopError(PlayerErrorResponseParams),
     PlayerStatus(PlayerStatus),
     PlayerStatusError(PlayerErrorResponseParams),
+    PlayerProgress(PlayerProgress),
+    PlayerProgressError(PlayerErrorResponseParams),
     //
     // TODO: assess if boxing this is a productive move: https://rust-lang.github.io/rust-clippy/master/index.html#/large_enum_variant
     EntityInfoResponse(Box<Option<EntityInfoResult>>),

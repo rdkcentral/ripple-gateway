@@ -22,11 +22,13 @@ use ripple_sdk::{
             fb_general::{ListenRequest, ListenerResponse},
             fb_player::{
                 PlayerErrorResponseParams, PlayerLoadRequest, PlayerLoadResponseParams,
-                PlayerMediaSession, PlayerPlayRequest, PlayerPlayResponseParams, PlayerRequest,
+                PlayerMediaSession, PlayerPlayRequest, PlayerPlayResponseParams, PlayerProgress,
+                PlayerProgressRequest, PlayerProgressResponseParams, PlayerRequest,
                 PlayerRequestWithContext, PlayerStatus, PlayerStatusRequest,
                 PlayerStatusResponseParams, PlayerStopRequest, PlayerStopResponseParams,
                 PLAYER_BASE_PROVIDER_CAPABILITY, PLAYER_LOAD_EVENT, PLAYER_LOAD_METHOD,
-                PLAYER_PLAY_EVENT, PLAYER_PLAY_METHOD, PLAYER_STATUS_EVENT, PLAYER_STATUS_METHOD,
+                PLAYER_PLAY_EVENT, PLAYER_PLAY_METHOD, PLAYER_PROGRESS_EVENT,
+                PLAYER_PROGRESS_METHOD, PLAYER_STATUS_EVENT, PLAYER_STATUS_METHOD,
                 PLAYER_STOP_EVENT, PLAYER_STOP_METHOD,
             },
             provider::{ProviderResponsePayload, ToProviderResponse},
@@ -153,6 +155,34 @@ pub trait Player {
 
     #[method(name = "player.statusError")]
     async fn status_error(
+        &self,
+        ctx: CallContext,
+        request: PlayerErrorResponseParams,
+    ) -> RpcResult<Option<()>>;
+
+    #[method(name = "player.onRequestProgress")]
+    async fn on_request_progress(
+        &self,
+        ctx: CallContext,
+        request: ListenRequest,
+    ) -> RpcResult<ListenerResponse>;
+
+    #[method(name = "player.progress")]
+    async fn progress(
+        &self,
+        ctx: CallContext,
+        request: PlayerProgressRequest,
+    ) -> RpcResult<PlayerProgress>;
+
+    #[method(name = "player.progressResponse")]
+    async fn progress_response(
+        &self,
+        ctx: CallContext,
+        request: PlayerProgressResponseParams,
+    ) -> RpcResult<Option<()>>;
+
+    #[method(name = "player.progressError")]
+    async fn progress_error(
         &self,
         ctx: CallContext,
         request: PlayerErrorResponseParams,
@@ -370,6 +400,59 @@ impl PlayerServer for PlayerImpl {
     }
 
     async fn status_error(
+        &self,
+        _ctx: CallContext,
+        resp: PlayerErrorResponseParams,
+    ) -> RpcResult<Option<()>> {
+        self.provider_response(resp).await
+    }
+
+    async fn on_request_progress(
+        &self,
+        ctx: CallContext,
+        request: ListenRequest,
+    ) -> RpcResult<ListenerResponse> {
+        let listen = request.listen;
+        ProviderBroker::register_or_unregister_provider(
+            &self.platform_state,
+            PLAYER_BASE_PROVIDER_CAPABILITY.to_owned(),
+            PLAYER_PROGRESS_METHOD.to_owned(),
+            PLAYER_PROGRESS_EVENT,
+            ctx,
+            request,
+        )
+        .await;
+        Ok(ListenerResponse {
+            listening: listen,
+            event: PLAYER_PROGRESS_EVENT.into(),
+        })
+    }
+
+    async fn progress(
+        &self,
+        ctx: CallContext,
+        request: PlayerProgressRequest,
+    ) -> RpcResult<PlayerProgress> {
+        let req = PlayerRequestWithContext {
+            request: PlayerRequest::Progress(request),
+            call_ctx: ctx,
+        };
+
+        match self.call_player_provider(req).await? {
+            ProviderResponsePayload::PlayerProgress(progress_response) => Ok(progress_response),
+            _ => Err(rpc_err("Invalid response back from provider")),
+        }
+    }
+
+    async fn progress_response(
+        &self,
+        _ctx: CallContext,
+        resp: PlayerProgressResponseParams,
+    ) -> RpcResult<Option<()>> {
+        self.provider_response(resp.response).await
+    }
+
+    async fn progress_error(
         &self,
         _ctx: CallContext,
         resp: PlayerErrorResponseParams,
