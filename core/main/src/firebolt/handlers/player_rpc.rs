@@ -23,9 +23,11 @@ use ripple_sdk::{
             fb_player::{
                 PlayerErrorResponseParams, PlayerLoadRequest, PlayerLoadResponseParams,
                 PlayerMediaSession, PlayerPlayRequest, PlayerPlayResponseParams, PlayerRequest,
-                PlayerRequestWithContext, PlayerStopRequest, PlayerStopResponseParams,
+                PlayerRequestWithContext, PlayerStatus, PlayerStatusRequest,
+                PlayerStatusResponseParams, PlayerStopRequest, PlayerStopResponseParams,
                 PLAYER_BASE_PROVIDER_CAPABILITY, PLAYER_LOAD_EVENT, PLAYER_LOAD_METHOD,
-                PLAYER_PLAY_EVENT, PLAYER_PLAY_METHOD, PLAYER_STOP_EVENT, PLAYER_STOP_METHOD,
+                PLAYER_PLAY_EVENT, PLAYER_PLAY_METHOD, PLAYER_STATUS_EVENT, PLAYER_STATUS_METHOD,
+                PLAYER_STOP_EVENT, PLAYER_STOP_METHOD,
             },
             provider::{ProviderResponsePayload, ToProviderResponse},
         },
@@ -123,6 +125,34 @@ pub trait Player {
 
     #[method(name = "player.stopError")]
     async fn stop_error(
+        &self,
+        ctx: CallContext,
+        request: PlayerErrorResponseParams,
+    ) -> RpcResult<Option<()>>;
+
+    #[method(name = "player.onRequestStatus")]
+    async fn on_request_status(
+        &self,
+        ctx: CallContext,
+        request: ListenRequest,
+    ) -> RpcResult<ListenerResponse>;
+
+    #[method(name = "player.status")]
+    async fn status(
+        &self,
+        ctx: CallContext,
+        request: PlayerStatusRequest,
+    ) -> RpcResult<PlayerStatus>;
+
+    #[method(name = "player.statusResponse")]
+    async fn status_response(
+        &self,
+        ctx: CallContext,
+        request: PlayerStatusResponseParams,
+    ) -> RpcResult<Option<()>>;
+
+    #[method(name = "player.statusError")]
+    async fn status_error(
         &self,
         ctx: CallContext,
         request: PlayerErrorResponseParams,
@@ -287,6 +317,59 @@ impl PlayerServer for PlayerImpl {
     }
 
     async fn stop_error(
+        &self,
+        _ctx: CallContext,
+        resp: PlayerErrorResponseParams,
+    ) -> RpcResult<Option<()>> {
+        self.provider_response(resp).await
+    }
+
+    async fn on_request_status(
+        &self,
+        ctx: CallContext,
+        request: ListenRequest,
+    ) -> RpcResult<ListenerResponse> {
+        let listen = request.listen;
+        ProviderBroker::register_or_unregister_provider(
+            &self.platform_state,
+            PLAYER_BASE_PROVIDER_CAPABILITY.to_owned(),
+            PLAYER_STATUS_METHOD.to_owned(),
+            PLAYER_STATUS_EVENT,
+            ctx,
+            request,
+        )
+        .await;
+        Ok(ListenerResponse {
+            listening: listen,
+            event: PLAYER_STATUS_EVENT.into(),
+        })
+    }
+
+    async fn status(
+        &self,
+        ctx: CallContext,
+        request: PlayerStatusRequest,
+    ) -> RpcResult<PlayerStatus> {
+        let req = PlayerRequestWithContext {
+            request: PlayerRequest::Status(request),
+            call_ctx: ctx,
+        };
+
+        match self.call_player_provider(req).await? {
+            ProviderResponsePayload::PlayerStatus(status_response) => Ok(status_response),
+            _ => Err(rpc_err("Invalid response back from provider")),
+        }
+    }
+
+    async fn status_response(
+        &self,
+        _ctx: CallContext,
+        resp: PlayerStatusResponseParams,
+    ) -> RpcResult<Option<()>> {
+        self.provider_response(resp.response).await
+    }
+
+    async fn status_error(
         &self,
         _ctx: CallContext,
         resp: PlayerErrorResponseParams,

@@ -35,10 +35,14 @@ pub const PLAYER_PLAY_EVENT: &str = "player.onRequestPlay";
 pub const PLAYER_PLAY_METHOD: &str = "play";
 pub const PLAYER_STOP_EVENT: &str = "player.onRequestStop";
 pub const PLAYER_STOP_METHOD: &str = "stop";
+pub const PLAYER_STATUS_EVENT: &str = "player.onRequestStatus";
+pub const PLAYER_STATUS_METHOD: &str = "status";
 
 pub const PLAYER_BASE_PROVIDER_CAPABILITY: &str = "xrn:firebolt:capability:player:base";
 
 // TODO: track playerIds to app ids, validate playerIds and add errors for unfound and invalid ids
+// TODO: support error responses
+// TODO: remove all the duplicated boilerplate - macros, traits, generics???
 
 // TODO: try impl serialize to remove enum encoding level
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -46,6 +50,7 @@ pub enum PlayerRequest {
     Load(PlayerLoadRequest),
     Play(PlayerPlayRequest),
     Stop(PlayerStopRequest),
+    Status(PlayerStatusRequest),
 }
 
 impl PlayerRequest {
@@ -54,6 +59,9 @@ impl PlayerRequest {
             Self::Load(load_request) => ProviderRequestPayload::PlayerLoad(load_request.clone()),
             Self::Play(play_request) => ProviderRequestPayload::PlayerPlay(play_request.clone()),
             Self::Stop(stop_request) => ProviderRequestPayload::PlayerStop(stop_request.clone()),
+            Self::Status(status_request) => {
+                ProviderRequestPayload::PlayerStatus(status_request.clone())
+            }
         }
     }
 
@@ -62,6 +70,7 @@ impl PlayerRequest {
             Self::Load(_) => PLAYER_LOAD_METHOD,
             Self::Play(_) => PLAYER_PLAY_METHOD,
             Self::Stop(_) => PLAYER_STOP_METHOD,
+            Self::Status(_) => PLAYER_STATUS_METHOD,
         }
     }
 }
@@ -111,6 +120,12 @@ pub struct PlayerStopRequest {
     pub player_id: String, // TODO: spec shows this prefixed with the appId - do we need to do that?
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerStatusRequest {
+    pub player_id: String, // TODO: spec shows this prefixed with the appId - do we need to do that?
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum PlayerProviderResponse {
     Load(PlayerLoadResponse),
@@ -119,10 +134,13 @@ pub enum PlayerProviderResponse {
     PlayError(PlayerErrorResponseParams),
     Stop(PlayerPlayResponse),
     StopError(PlayerErrorResponseParams),
+    Status(PlayerPlayResponse),
+    StatusError(PlayerErrorResponseParams),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum PlayerResponse {
+    // TODO: is this needed?
     Load(PlayerMediaSession),
     Play(PlayerMediaSession),
 }
@@ -149,6 +167,39 @@ impl ExtnPayloadProvider for PlayerResponse {
 #[serde(rename_all = "camelCase")]
 pub struct PlayerMediaSession {
     pub media_session_id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum PlayerStatusState {
+    Idle,
+    Pending,
+    Playing,
+    Blocked,
+    Failed,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum PlayerStatusBlockedReason {
+    NoNetwork,
+    ContentNotFound,
+    DrmError,
+    NotEntitled,
+    GeoBlocked,
+    ChannelNotScanned,
+    NoSignal,
+    TechnicalFault,
+    ChannelOffAir,
+    PlayerFailure,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerStatus {
+    pub media_session_id: String,
+    pub state: PlayerStatusState,
+    pub blocked_reason: Option<PlayerStatusBlockedReason>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -272,6 +323,37 @@ impl ToProviderResponse for PlayerStopResponse {
         ProviderResponse {
             correlation_id: self.correlation_id.clone(),
             result: ProviderResponsePayload::PlayerStop(self.result.clone()),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerStatusResponseParams {
+    pub response: PlayerStatusResponse,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerStatusResponse {
+    pub correlation_id: String,
+    pub result: PlayerStatus,
+}
+
+impl PlayerStatusResponse {
+    pub fn new(correlation_id: String, result: PlayerStatus) -> Self {
+        Self {
+            correlation_id,
+            result,
+        }
+    }
+}
+
+impl ToProviderResponse for PlayerStatusResponse {
+    fn to_provider_response(&self) -> ProviderResponse {
+        ProviderResponse {
+            correlation_id: self.correlation_id.clone(),
+            result: ProviderResponsePayload::PlayerStatus(self.result.clone()),
         }
     }
 }
