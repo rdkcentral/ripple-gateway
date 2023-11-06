@@ -21,17 +21,14 @@ use ripple_sdk::{
         firebolt::{
             fb_general::{ListenRequest, ListenerResponse},
             fb_player::{
-                PlayerErrorResponseParams, PlayerLoadRequest, PlayerLoadResponseParams,
-                PlayerMediaSession, PlayerPlayRequest, PlayerPlayResponseParams, PlayerProgress,
-                PlayerProgressRequest, PlayerProgressResponseParams, PlayerRequest,
-                PlayerRequestWithContext, PlayerStatus, PlayerStatusRequest,
-                PlayerStatusResponseParams, PlayerStopRequest, PlayerStopResponseParams,
-                StreamingPlayerCreateRequest, StreamingPlayerCreateResponseParams,
-                StreamingPlayerInstance, PLAYER_BASE_PROVIDER_CAPABILITY, PLAYER_LOAD_EVENT,
-                PLAYER_LOAD_METHOD, PLAYER_PLAY_EVENT, PLAYER_PLAY_METHOD, PLAYER_PROGRESS_EVENT,
+                PlayerErrorResponse, PlayerLoadRequest, PlayerLoadResponse, PlayerMediaSession,
+                PlayerPlayRequest, PlayerPlayResponse, PlayerProgress, PlayerProgressRequest,
+                PlayerProgressResponse, PlayerRequest, PlayerRequestWithContext, PlayerStatus,
+                PlayerStatusRequest, PlayerStatusResponse, PlayerStopRequest, PlayerStopResponse,
+                PLAYER_BASE_PROVIDER_CAPABILITY, PLAYER_LOAD_EVENT, PLAYER_LOAD_METHOD,
+                PLAYER_PLAY_EVENT, PLAYER_PLAY_METHOD, PLAYER_PROGRESS_EVENT,
                 PLAYER_PROGRESS_METHOD, PLAYER_STATUS_EVENT, PLAYER_STATUS_METHOD,
-                PLAYER_STOP_EVENT, PLAYER_STOP_METHOD, PLAYER_STREAMING_PROVIDER_CAPABILITY,
-                STREAMING_PLAYER_CREATE_EVENT, STREAMING_PLAYER_CREATE_METHOD,
+                PLAYER_STOP_EVENT, PLAYER_STOP_METHOD,
             },
             provider::{ProviderResponsePayload, ToProviderResponse},
         },
@@ -68,14 +65,14 @@ pub trait Player {
     async fn load_response(
         &self,
         ctx: CallContext,
-        request: PlayerLoadResponseParams,
+        request: PlayerLoadResponse,
     ) -> RpcResult<Option<()>>;
 
     #[method(name = "player.loadError")]
     async fn load_error(
         &self,
         ctx: CallContext,
-        request: PlayerErrorResponseParams,
+        request: PlayerErrorResponse,
     ) -> RpcResult<Option<()>>;
 
     #[method(name = "player.onRequestPlay")]
@@ -96,14 +93,14 @@ pub trait Player {
     async fn play_response(
         &self,
         ctx: CallContext,
-        request: PlayerPlayResponseParams,
+        request: PlayerPlayResponse,
     ) -> RpcResult<Option<()>>;
 
     #[method(name = "player.playError")]
     async fn play_error(
         &self,
         ctx: CallContext,
-        request: PlayerErrorResponseParams,
+        request: PlayerErrorResponse,
     ) -> RpcResult<Option<()>>;
 
     #[method(name = "player.onRequestStop")]
@@ -124,14 +121,14 @@ pub trait Player {
     async fn stop_response(
         &self,
         ctx: CallContext,
-        request: PlayerStopResponseParams,
+        request: PlayerStopResponse,
     ) -> RpcResult<Option<()>>;
 
     #[method(name = "player.stopError")]
     async fn stop_error(
         &self,
         ctx: CallContext,
-        request: PlayerErrorResponseParams,
+        request: PlayerErrorResponse,
     ) -> RpcResult<Option<()>>;
 
     #[method(name = "player.onRequestStatus")]
@@ -152,14 +149,14 @@ pub trait Player {
     async fn status_response(
         &self,
         ctx: CallContext,
-        request: PlayerStatusResponseParams,
+        request: PlayerStatusResponse,
     ) -> RpcResult<Option<()>>;
 
     #[method(name = "player.statusError")]
     async fn status_error(
         &self,
         ctx: CallContext,
-        request: PlayerErrorResponseParams,
+        request: PlayerErrorResponse,
     ) -> RpcResult<Option<()>>;
 
     #[method(name = "player.onRequestProgress")]
@@ -180,39 +177,14 @@ pub trait Player {
     async fn progress_response(
         &self,
         ctx: CallContext,
-        request: PlayerProgressResponseParams,
+        request: PlayerProgressResponse,
     ) -> RpcResult<Option<()>>;
 
     #[method(name = "player.progressError")]
     async fn progress_error(
         &self,
         ctx: CallContext,
-        request: PlayerErrorResponseParams,
-    ) -> RpcResult<Option<()>>;
-    // TODO move streaming player to own module
-    #[method(name = "streamingplayer.onRequestCreate")]
-    async fn on_request_streaming_player_create(
-        &self,
-        ctx: CallContext,
-        request: ListenRequest,
-    ) -> RpcResult<ListenerResponse>;
-
-    #[method(name = "streamingplayer.create")]
-    async fn streaming_player_create(&self, ctx: CallContext)
-        -> RpcResult<StreamingPlayerInstance>;
-
-    #[method(name = "streamingplayer.createResponse")]
-    async fn streaming_player_create_response(
-        &self,
-        ctx: CallContext,
-        request: StreamingPlayerCreateResponseParams,
-    ) -> RpcResult<Option<()>>;
-
-    #[method(name = "streamingplayer.createError")]
-    async fn streaming_player_create_error(
-        &self,
-        ctx: CallContext,
-        request: PlayerErrorResponseParams,
+        request: PlayerErrorResponse,
     ) -> RpcResult<Option<()>>;
 }
 
@@ -265,15 +237,15 @@ impl PlayerServer for PlayerImpl {
     async fn load_response(
         &self,
         _ctx: CallContext,
-        resp: PlayerLoadResponseParams,
+        resp: PlayerLoadResponse,
     ) -> RpcResult<Option<()>> {
-        self.provider_response(resp.response).await
+        self.provider_response(resp).await
     }
 
     async fn load_error(
         &self,
         _ctx: CallContext,
-        resp: PlayerErrorResponseParams,
+        resp: PlayerErrorResponse,
     ) -> RpcResult<Option<()>> {
         self.provider_response(resp).await
     }
@@ -321,15 +293,15 @@ impl PlayerServer for PlayerImpl {
     async fn play_response(
         &self,
         _ctx: CallContext,
-        resp: PlayerPlayResponseParams,
+        resp: PlayerPlayResponse,
     ) -> RpcResult<Option<()>> {
-        self.provider_response(resp.response).await
+        self.provider_response(resp).await
     }
 
     async fn play_error(
         &self,
         _ctx: CallContext,
-        resp: PlayerErrorResponseParams,
+        resp: PlayerErrorResponse,
     ) -> RpcResult<Option<()>> {
         self.provider_response(resp).await
     }
@@ -377,15 +349,15 @@ impl PlayerServer for PlayerImpl {
     async fn stop_response(
         &self,
         _ctx: CallContext,
-        resp: PlayerStopResponseParams,
+        resp: PlayerStopResponse,
     ) -> RpcResult<Option<()>> {
-        self.provider_response(resp.response).await
+        self.provider_response(resp).await
     }
 
     async fn stop_error(
         &self,
         _ctx: CallContext,
-        resp: PlayerErrorResponseParams,
+        resp: PlayerErrorResponse,
     ) -> RpcResult<Option<()>> {
         self.provider_response(resp).await
     }
@@ -433,15 +405,15 @@ impl PlayerServer for PlayerImpl {
     async fn status_response(
         &self,
         _ctx: CallContext,
-        resp: PlayerStatusResponseParams,
+        resp: PlayerStatusResponse,
     ) -> RpcResult<Option<()>> {
-        self.provider_response(resp.response).await
+        self.provider_response(resp).await
     }
 
     async fn status_error(
         &self,
         _ctx: CallContext,
-        resp: PlayerErrorResponseParams,
+        resp: PlayerErrorResponse,
     ) -> RpcResult<Option<()>> {
         self.provider_response(resp).await
     }
@@ -489,70 +461,15 @@ impl PlayerServer for PlayerImpl {
     async fn progress_response(
         &self,
         _ctx: CallContext,
-        resp: PlayerProgressResponseParams,
+        resp: PlayerProgressResponse,
     ) -> RpcResult<Option<()>> {
-        self.provider_response(resp.response).await
+        self.provider_response(resp).await
     }
 
     async fn progress_error(
         &self,
         _ctx: CallContext,
-        resp: PlayerErrorResponseParams,
-    ) -> RpcResult<Option<()>> {
-        self.provider_response(resp).await
-    }
-
-    async fn on_request_streaming_player_create(
-        &self,
-        ctx: CallContext,
-        request: ListenRequest,
-    ) -> RpcResult<ListenerResponse> {
-        let listen = request.listen;
-        ProviderBroker::register_or_unregister_provider(
-            &self.platform_state,
-            PLAYER_STREAMING_PROVIDER_CAPABILITY.to_owned(),
-            STREAMING_PLAYER_CREATE_METHOD.to_owned(),
-            STREAMING_PLAYER_CREATE_EVENT,
-            ctx,
-            request,
-        )
-        .await;
-        Ok(ListenerResponse {
-            listening: listen,
-            event: STREAMING_PLAYER_CREATE_EVENT.into(),
-        })
-    }
-
-    async fn streaming_player_create(
-        &self,
-        ctx: CallContext,
-    ) -> RpcResult<StreamingPlayerInstance> {
-        let req = PlayerRequestWithContext {
-            request: PlayerRequest::StreamingPlayerCreate(StreamingPlayerCreateRequest),
-            call_ctx: ctx,
-        };
-
-        match self
-            .call_player_provider(req, PLAYER_STREAMING_PROVIDER_CAPABILITY)
-            .await?
-        {
-            ProviderResponsePayload::StreamingPlayerCreate(instance) => Ok(instance),
-            _ => Err(rpc_err("Invalid response back from provider")),
-        }
-    }
-
-    async fn streaming_player_create_response(
-        &self,
-        _ctx: CallContext,
-        resp: StreamingPlayerCreateResponseParams,
-    ) -> RpcResult<Option<()>> {
-        self.provider_response(resp.response).await
-    }
-
-    async fn streaming_player_create_error(
-        &self,
-        _ctx: CallContext,
-        resp: PlayerErrorResponseParams,
+        resp: PlayerErrorResponse,
     ) -> RpcResult<Option<()>> {
         self.provider_response(resp).await
     }

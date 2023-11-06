@@ -39,10 +39,10 @@ pub const PLAYER_STATUS_EVENT: &str = "player.onRequestStatus";
 pub const PLAYER_STATUS_METHOD: &str = "status";
 pub const PLAYER_PROGRESS_EVENT: &str = "player.onRequestProgress";
 pub const PLAYER_PROGRESS_METHOD: &str = "progress";
-pub const STREAMING_PLAYER_CREATE_EVENT: &str = "streamingplayer.onRequestCreate";
-pub const STREAMING_PLAYER_CREATE_METHOD: &str = "progress";
-
 pub const PLAYER_BASE_PROVIDER_CAPABILITY: &str = "xrn:firebolt:capability:player:base";
+
+pub const STREAMING_PLAYER_CREATE_EVENT: &str = "streamingplayer.onRequestCreate";
+pub const STREAMING_PLAYER_CREATE_METHOD: &str = "create";
 pub const PLAYER_STREAMING_PROVIDER_CAPABILITY: &str = "xrn:firebolt:capability:player:streaming";
 
 // TODO: track playerIds to app ids, validate playerIds and add errors for unfound and invalid ids
@@ -57,7 +57,8 @@ pub enum PlayerRequest {
     Stop(PlayerStopRequest),
     Status(PlayerStatusRequest),
     Progress(PlayerProgressRequest),
-    StreamingPlayerCreate(StreamingPlayerCreateRequest), // TODO: is empty strcut a bit redundant?
+    // TODO: move to own enum
+    StreamingPlayerCreate(StreamingPlayerCreateRequest), // TODO: is empty struct a bit redundant?
 }
 
 impl PlayerRequest {
@@ -85,7 +86,7 @@ impl PlayerRequest {
             Self::Stop(_) => PLAYER_STOP_METHOD,
             Self::Status(_) => PLAYER_STATUS_METHOD,
             Self::Progress(_) => PLAYER_PROGRESS_METHOD,
-            Self::StreamingPlayerCreate(_) => PLAYER_PROGRESS_METHOD,
+            Self::StreamingPlayerCreate(_) => STREAMING_PLAYER_CREATE_METHOD,
         }
     }
 }
@@ -155,17 +156,17 @@ pub struct StreamingPlayerCreateRequest;
 pub enum PlayerProviderResponse {
     // TODO: do we really need all these variants?
     Load(PlayerLoadResponse),
-    LoadError(PlayerErrorResponseParams),
+    LoadError(PlayerErrorResponse),
     Play(PlayerPlayResponse),
-    PlayError(PlayerErrorResponseParams),
+    PlayError(PlayerErrorResponse),
     Stop(PlayerStopResponse),
-    StopError(PlayerErrorResponseParams),
+    StopError(PlayerErrorResponse),
     Status(PlayerStatusResponse),
-    StatusError(PlayerErrorResponseParams),
+    StatusError(PlayerErrorResponse),
     Progress(PlayerProgressResponse),
-    ProgressError(PlayerErrorResponseParams),
+    ProgressError(PlayerErrorResponse),
     StreamingPlayerCreate(StreamingPlayerCreateResponse),
-    StreamingPlayerCreateError(PlayerErrorResponseParams),
+    StreamingPlayerCreateError(PlayerErrorResponse),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -251,12 +252,6 @@ pub struct StreamingPlayerInstance {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct PlayerLoadResponseParams {
-    pub response: PlayerLoadResponse,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
 pub struct PlayerLoadResponse {
     pub correlation_id: String,
     pub result: PlayerMediaSession,
@@ -282,40 +277,34 @@ impl ToProviderResponse for PlayerLoadResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct PlayerErrorResponse {
+pub struct PlayerError {
     pub code: u32,
     pub message: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct PlayerErrorResponseParams {
+pub struct PlayerErrorResponse {
     pub correlation_id: String,
-    pub error: PlayerErrorResponse,
+    pub result: PlayerError,
 }
 
-impl PlayerErrorResponseParams {
-    pub fn new(correlation_id: String, error: PlayerErrorResponse) -> Self {
+impl PlayerErrorResponse {
+    pub fn new(correlation_id: String, error: PlayerError) -> Self {
         Self {
             correlation_id,
-            error,
+            result: error,
         }
     }
 }
 
-impl ToProviderResponse for PlayerErrorResponseParams {
+impl ToProviderResponse for PlayerErrorResponse {
     fn to_provider_response(&self) -> ProviderResponse {
         ProviderResponse {
             correlation_id: self.correlation_id.clone(),
             result: ProviderResponsePayload::PlayerLoadError(self.clone()),
         }
     }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct PlayerPlayResponseParams {
-    pub response: PlayerPlayResponse,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -345,12 +334,6 @@ impl ToProviderResponse for PlayerPlayResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct PlayerStopResponseParams {
-    pub response: PlayerStopResponse,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
 pub struct PlayerStopResponse {
     pub correlation_id: String,
     pub result: PlayerMediaSession,
@@ -372,12 +355,6 @@ impl ToProviderResponse for PlayerStopResponse {
             result: ProviderResponsePayload::PlayerStop(self.result.clone()),
         }
     }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct PlayerStatusResponseParams {
-    pub response: PlayerStatusResponse,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -407,12 +384,6 @@ impl ToProviderResponse for PlayerStatusResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct PlayerProgressResponseParams {
-    pub response: PlayerProgressResponse,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
 pub struct PlayerProgressResponse {
     pub correlation_id: String,
     pub result: PlayerProgress,
@@ -434,12 +405,6 @@ impl ToProviderResponse for PlayerProgressResponse {
             result: ProviderResponsePayload::PlayerProgress(self.result.clone()),
         }
     }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct StreamingPlayerCreateResponseParams {
-    pub response: StreamingPlayerCreateResponse,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

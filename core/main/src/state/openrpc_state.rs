@@ -63,6 +63,7 @@ impl OpenRpcState {
     pub fn new(exclusory: Option<ExclusoryImpl>) -> OpenRpcState {
         let version_manifest: FireboltVersionManifest =
             serde_json::from_str(std::include_str!("./firebolt-open-rpc.json")).unwrap();
+        // TODO: add player and streaming player
         let firebolt_open_rpc: FireboltOpenRpc = version_manifest.clone().into();
         let ripple_rpc_file = std::include_str!("./ripple-rpc.json");
         let mut ripple_open_rpc: FireboltOpenRpc = FireboltOpenRpc::default();

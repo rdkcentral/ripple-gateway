@@ -21,16 +21,9 @@ use ripple_sdk::{
         firebolt::{
             fb_general::{ListenRequest, ListenerResponse},
             fb_player::{
-                PlayerErrorResponseParams, PlayerLoadRequest, PlayerLoadResponseParams,
-                PlayerMediaSession, PlayerPlayRequest, PlayerPlayResponseParams, PlayerProgress,
-                PlayerProgressRequest, PlayerProgressResponseParams, PlayerRequest,
-                PlayerRequestWithContext, PlayerStatus, PlayerStatusRequest,
-                PlayerStatusResponseParams, PlayerStopRequest, PlayerStopResponseParams,
-                StreamingPlayerCreateRequest, StreamingPlayerCreateResponseParams,
-                StreamingPlayerInstance, PLAYER_BASE_PROVIDER_CAPABILITY, PLAYER_LOAD_EVENT,
-                PLAYER_LOAD_METHOD, PLAYER_PLAY_EVENT, PLAYER_PLAY_METHOD, PLAYER_PROGRESS_EVENT,
-                PLAYER_PROGRESS_METHOD, PLAYER_STATUS_EVENT, PLAYER_STATUS_METHOD,
-                PLAYER_STOP_EVENT, PLAYER_STOP_METHOD, PLAYER_STREAMING_PROVIDER_CAPABILITY,
+                PlayerErrorResponse, PlayerRequest, PlayerRequestWithContext,
+                StreamingPlayerCreateRequest, StreamingPlayerCreateResponse,
+                StreamingPlayerInstance, PLAYER_STREAMING_PROVIDER_CAPABILITY,
                 STREAMING_PLAYER_CREATE_EVENT, STREAMING_PLAYER_CREATE_METHOD,
             },
             provider::{ProviderResponsePayload, ToProviderResponse},
@@ -38,6 +31,7 @@ use ripple_sdk::{
         gateway::rpc_gateway_api::CallContext,
     },
     async_trait::async_trait,
+    log::debug,
     tokio::sync::oneshot,
     utils::rpc_utils::rpc_err,
 };
@@ -50,327 +44,48 @@ use crate::{
 
 #[rpc(server)]
 pub trait StreamingPlayer {
-    #[method(name = "streamingPlayer.onRequestCreate")]
+    #[method(name = "streamingplayer.onRequestCreate")]
     async fn on_request_streaming_player_create(
         &self,
         ctx: CallContext,
         request: ListenRequest,
     ) -> RpcResult<ListenerResponse>;
 
-    #[method(name = "streamingPlayer.create")]
-    async fn streaming_player_create(
-        &self,
-        ctx: CallContext,
-        request: StreamingPlayerCreateRequest,
-    ) -> RpcResult<StreamingPlayerInstance>;
+    #[method(name = "streamingplayer.create")]
+    async fn streaming_player_create(&self, ctx: CallContext)
+        -> RpcResult<StreamingPlayerInstance>;
 
-    #[method(name = "streamingPlayer.createResponse")]
+    #[method(name = "streamingplayer.createResponse")]
     async fn streaming_player_create_response(
         &self,
         ctx: CallContext,
-        request: StreamingPlayerCreateResponseParams,
+        request: StreamingPlayerCreateResponse,
     ) -> RpcResult<Option<()>>;
 
-    #[method(name = "streamingPlayer.createError")]
+    #[method(name = "streamingplayer.createError")]
     async fn streaming_player_create_error(
         &self,
         ctx: CallContext,
-        request: PlayerErrorResponseParams,
+        request: PlayerErrorResponse,
     ) -> RpcResult<Option<()>>;
 }
 
-pub struct PlayerImpl {
+pub struct StreamingPlayerImpl {
     pub platform_state: PlatformState,
 }
 
 #[async_trait]
-impl PlayerServer for PlayerImpl {
-    async fn on_request_load(
-        &self,
-        ctx: CallContext,
-        request: ListenRequest,
-    ) -> RpcResult<ListenerResponse> {
-        let listen = request.listen;
-        ProviderBroker::register_or_unregister_provider(
-            &self.platform_state,
-            PLAYER_BASE_PROVIDER_CAPABILITY.to_owned(),
-            PLAYER_LOAD_METHOD.to_owned(),
-            PLAYER_LOAD_EVENT,
-            ctx,
-            request,
-        )
-        .await;
-        Ok(ListenerResponse {
-            listening: listen,
-            event: PLAYER_LOAD_EVENT.into(),
-        })
-    }
-
-    async fn load(
-        &self,
-        ctx: CallContext,
-        request: PlayerLoadRequest,
-    ) -> RpcResult<PlayerMediaSession> {
-        let req = PlayerRequestWithContext {
-            request: PlayerRequest::Load(request),
-            call_ctx: ctx,
-        };
-
-        match self
-            .call_player_provider(req, PLAYER_BASE_PROVIDER_CAPABILITY)
-            .await?
-        {
-            ProviderResponsePayload::PlayerLoad(load_response) => Ok(load_response),
-            _ => Err(rpc_err("Invalid response back from provider")),
-        }
-    }
-
-    async fn load_response(
-        &self,
-        _ctx: CallContext,
-        resp: PlayerLoadResponseParams,
-    ) -> RpcResult<Option<()>> {
-        self.provider_response(resp.response).await
-    }
-
-    async fn load_error(
-        &self,
-        _ctx: CallContext,
-        resp: PlayerErrorResponseParams,
-    ) -> RpcResult<Option<()>> {
-        self.provider_response(resp).await
-    }
-
-    async fn on_request_play(
-        &self,
-        ctx: CallContext,
-        request: ListenRequest,
-    ) -> RpcResult<ListenerResponse> {
-        let listen = request.listen;
-        ProviderBroker::register_or_unregister_provider(
-            &self.platform_state,
-            PLAYER_BASE_PROVIDER_CAPABILITY.to_owned(),
-            PLAYER_PLAY_METHOD.to_owned(),
-            PLAYER_PLAY_EVENT,
-            ctx,
-            request,
-        )
-        .await;
-        Ok(ListenerResponse {
-            listening: listen,
-            event: PLAYER_PLAY_EVENT.into(),
-        })
-    }
-
-    async fn play(
-        &self,
-        ctx: CallContext,
-        request: PlayerPlayRequest,
-    ) -> RpcResult<PlayerMediaSession> {
-        let req = PlayerRequestWithContext {
-            request: PlayerRequest::Play(request),
-            call_ctx: ctx,
-        };
-
-        match self
-            .call_player_provider(req, PLAYER_BASE_PROVIDER_CAPABILITY)
-            .await?
-        {
-            ProviderResponsePayload::PlayerPlay(play_response) => Ok(play_response), // TODO: spec says this should be Option<()>
-            _ => Err(rpc_err("Invalid response back from provider")),
-        }
-    }
-
-    async fn play_response(
-        &self,
-        _ctx: CallContext,
-        resp: PlayerPlayResponseParams,
-    ) -> RpcResult<Option<()>> {
-        self.provider_response(resp.response).await
-    }
-
-    async fn play_error(
-        &self,
-        _ctx: CallContext,
-        resp: PlayerErrorResponseParams,
-    ) -> RpcResult<Option<()>> {
-        self.provider_response(resp).await
-    }
-
-    async fn on_request_stop(
-        &self,
-        ctx: CallContext,
-        request: ListenRequest,
-    ) -> RpcResult<ListenerResponse> {
-        let listen = request.listen;
-        ProviderBroker::register_or_unregister_provider(
-            &self.platform_state,
-            PLAYER_BASE_PROVIDER_CAPABILITY.to_owned(),
-            PLAYER_STOP_METHOD.to_owned(),
-            PLAYER_STOP_EVENT,
-            ctx,
-            request,
-        )
-        .await;
-        Ok(ListenerResponse {
-            listening: listen,
-            event: PLAYER_STOP_EVENT.into(),
-        })
-    }
-
-    async fn stop(
-        &self,
-        ctx: CallContext,
-        request: PlayerStopRequest,
-    ) -> RpcResult<PlayerMediaSession> {
-        let req = PlayerRequestWithContext {
-            request: PlayerRequest::Stop(request),
-            call_ctx: ctx,
-        };
-
-        match self
-            .call_player_provider(req, PLAYER_BASE_PROVIDER_CAPABILITY)
-            .await?
-        {
-            ProviderResponsePayload::PlayerStop(stop_response) => Ok(stop_response), // TODO: spec says this should be Option<()>
-            _ => Err(rpc_err("Invalid response back from provider")),
-        }
-    }
-
-    async fn stop_response(
-        &self,
-        _ctx: CallContext,
-        resp: PlayerStopResponseParams,
-    ) -> RpcResult<Option<()>> {
-        self.provider_response(resp.response).await
-    }
-
-    async fn stop_error(
-        &self,
-        _ctx: CallContext,
-        resp: PlayerErrorResponseParams,
-    ) -> RpcResult<Option<()>> {
-        self.provider_response(resp).await
-    }
-
-    async fn on_request_status(
-        &self,
-        ctx: CallContext,
-        request: ListenRequest,
-    ) -> RpcResult<ListenerResponse> {
-        let listen = request.listen;
-        ProviderBroker::register_or_unregister_provider(
-            &self.platform_state,
-            PLAYER_BASE_PROVIDER_CAPABILITY.to_owned(),
-            PLAYER_STATUS_METHOD.to_owned(),
-            PLAYER_STATUS_EVENT,
-            ctx,
-            request,
-        )
-        .await;
-        Ok(ListenerResponse {
-            listening: listen,
-            event: PLAYER_STATUS_EVENT.into(),
-        })
-    }
-
-    async fn status(
-        &self,
-        ctx: CallContext,
-        request: PlayerStatusRequest,
-    ) -> RpcResult<PlayerStatus> {
-        let req = PlayerRequestWithContext {
-            request: PlayerRequest::Status(request),
-            call_ctx: ctx,
-        };
-
-        match self
-            .call_player_provider(req, PLAYER_BASE_PROVIDER_CAPABILITY)
-            .await?
-        {
-            ProviderResponsePayload::PlayerStatus(status_response) => Ok(status_response),
-            _ => Err(rpc_err("Invalid response back from provider")),
-        }
-    }
-
-    async fn status_response(
-        &self,
-        _ctx: CallContext,
-        resp: PlayerStatusResponseParams,
-    ) -> RpcResult<Option<()>> {
-        self.provider_response(resp.response).await
-    }
-
-    async fn status_error(
-        &self,
-        _ctx: CallContext,
-        resp: PlayerErrorResponseParams,
-    ) -> RpcResult<Option<()>> {
-        self.provider_response(resp).await
-    }
-
-    async fn on_request_progress(
-        &self,
-        ctx: CallContext,
-        request: ListenRequest,
-    ) -> RpcResult<ListenerResponse> {
-        let listen = request.listen;
-        ProviderBroker::register_or_unregister_provider(
-            &self.platform_state,
-            PLAYER_BASE_PROVIDER_CAPABILITY.to_owned(),
-            PLAYER_PROGRESS_METHOD.to_owned(),
-            PLAYER_PROGRESS_EVENT,
-            ctx,
-            request,
-        )
-        .await;
-        Ok(ListenerResponse {
-            listening: listen,
-            event: PLAYER_PROGRESS_EVENT.into(),
-        })
-    }
-
-    async fn progress(
-        &self,
-        ctx: CallContext,
-        request: PlayerProgressRequest,
-    ) -> RpcResult<PlayerProgress> {
-        let req = PlayerRequestWithContext {
-            request: PlayerRequest::Progress(request),
-            call_ctx: ctx,
-        };
-
-        match self
-            .call_player_provider(req, PLAYER_BASE_PROVIDER_CAPABILITY)
-            .await?
-        {
-            ProviderResponsePayload::PlayerProgress(progress_response) => Ok(progress_response),
-            _ => Err(rpc_err("Invalid response back from provider")),
-        }
-    }
-
-    async fn progress_response(
-        &self,
-        _ctx: CallContext,
-        resp: PlayerProgressResponseParams,
-    ) -> RpcResult<Option<()>> {
-        self.provider_response(resp.response).await
-    }
-
-    async fn progress_error(
-        &self,
-        _ctx: CallContext,
-        resp: PlayerErrorResponseParams,
-    ) -> RpcResult<Option<()>> {
-        self.provider_response(resp).await
-    }
-
+impl StreamingPlayerServer for StreamingPlayerImpl {
     async fn on_request_streaming_player_create(
         &self,
         ctx: CallContext,
         request: ListenRequest,
     ) -> RpcResult<ListenerResponse> {
         let listen = request.listen;
+        debug!(
+            "consts {} {}",
+            STREAMING_PLAYER_CREATE_EVENT, PLAYER_STREAMING_PROVIDER_CAPABILITY
+        );
         ProviderBroker::register_or_unregister_provider(
             &self.platform_state,
             PLAYER_STREAMING_PROVIDER_CAPABILITY.to_owned(),
@@ -389,10 +104,9 @@ impl PlayerServer for PlayerImpl {
     async fn streaming_player_create(
         &self,
         ctx: CallContext,
-        request: StreamingPlayerCreateRequest,
     ) -> RpcResult<StreamingPlayerInstance> {
         let req = PlayerRequestWithContext {
-            request: PlayerRequest::StreamingPlayerCreate(request),
+            request: PlayerRequest::StreamingPlayerCreate(StreamingPlayerCreateRequest),
             call_ctx: ctx,
         };
 
@@ -408,21 +122,21 @@ impl PlayerServer for PlayerImpl {
     async fn streaming_player_create_response(
         &self,
         _ctx: CallContext,
-        resp: StreamingPlayerCreateResponseParams,
+        resp: StreamingPlayerCreateResponse,
     ) -> RpcResult<Option<()>> {
-        self.provider_response(resp.response).await
+        self.provider_response(resp).await
     }
 
     async fn streaming_player_create_error(
         &self,
         _ctx: CallContext,
-        resp: PlayerErrorResponseParams,
+        resp: PlayerErrorResponse,
     ) -> RpcResult<Option<()>> {
         self.provider_response(resp).await
     }
 }
 
-impl PlayerImpl {
+impl StreamingPlayerImpl {
     async fn call_player_provider(
         &self,
         request: PlayerRequestWithContext,
@@ -456,11 +170,11 @@ impl PlayerImpl {
     }
 }
 
-pub struct PlayerRPCProvider;
+pub struct StreamingPlayerRPCProvider;
 
-impl RippleRPCProvider<PlayerImpl> for PlayerRPCProvider {
-    fn provide(state: PlatformState) -> RpcModule<PlayerImpl> {
-        (PlayerImpl {
+impl RippleRPCProvider<StreamingPlayerImpl> for StreamingPlayerRPCProvider {
+    fn provide(state: PlatformState) -> RpcModule<StreamingPlayerImpl> {
+        (StreamingPlayerImpl {
             platform_state: state,
         })
         .into_rpc()

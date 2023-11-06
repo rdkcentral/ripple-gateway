@@ -31,8 +31,10 @@ use crate::{
             parameters_rpc::ParametersRPCProvider, pin_rpc::PinRPCProvider,
             player_rpc::PlayerRPCProvider, privacy_rpc::PrivacyProvider,
             profile_rpc::ProfileRPCProvider, second_screen_rpc::SecondScreenRPCProvider,
-            secure_storage_rpc::SecureStorageRPCProvider, user_grants_rpc::UserGrantsRPCProvider,
-            voice_guidance_rpc::VoiceguidanceRPCProvider, wifi_rpc::WifiRPCProvider,
+            secure_storage_rpc::SecureStorageRPCProvider,
+            streaming_player_rpc::StreamingPlayerRPCProvider,
+            user_grants_rpc::UserGrantsRPCProvider, voice_guidance_rpc::VoiceguidanceRPCProvider,
+            wifi_rpc::WifiRPCProvider,
         },
         rpc::RippleRPCProvider,
     },
@@ -75,6 +77,9 @@ impl FireboltGatewayStep {
             state.clone(),
         ));
         let _ = methods.merge(PlayerRPCProvider::provide_with_alias(state.clone()));
+        let _ = methods.merge(StreamingPlayerRPCProvider::provide_with_alias(
+            state.clone(),
+        ));
 
         // LCM Api(s) not required for internal launcher
         if !state.has_internal_launcher() {

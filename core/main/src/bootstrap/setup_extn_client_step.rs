@@ -21,6 +21,7 @@ use ripple_sdk::{
 
 use crate::processor::account_link_processor::AccountLinkProcessor;
 use crate::processor::metrics_processor::{MetricsProcessor, OpMetricsProcessor};
+// use crate::processor::player_processor::PlayerProcessor;
 use crate::processor::settings_processor::SettingsProcessor;
 use crate::processor::{
     store_privacy_settings_processor::StorePrivacySettingsProcessor,
@@ -64,6 +65,7 @@ impl Bootstep<BootstrapState> for SetupExtnClientStep {
         client.add_request_processor(SettingsProcessor::new(state.platform_state.clone()));
         client.add_request_processor(MetricsProcessor::new(state.platform_state.clone()));
         client.add_request_processor(OpMetricsProcessor::new(state.platform_state.clone()));
+        // client.add_request_processor(PlayerProcessor::new(state.platform_state.clone()));
         Ok(())
     }
 }
