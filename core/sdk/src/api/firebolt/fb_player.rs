@@ -39,6 +39,8 @@ pub const PLAYER_STATUS_EVENT: &str = "player.onRequestStatus";
 pub const PLAYER_STATUS_METHOD: &str = "status";
 pub const PLAYER_PROGRESS_EVENT: &str = "player.onRequestProgress";
 pub const PLAYER_PROGRESS_METHOD: &str = "progress";
+pub const PLAYER_ON_PROGRESS_CHANGED_EVENT: &str = "player.onProgressChanged";
+pub const EVENT_PLAYER_PROGRESS_CHANGED: &str = "player.onProgressChanged";
 pub const PLAYER_BASE_PROVIDER_CAPABILITY: &str = "xrn:firebolt:capability:player:base";
 
 pub const STREAMING_PLAYER_CREATE_EVENT: &str = "streamingplayer.onRequestCreate";

@@ -25,8 +25,8 @@ use ripple_sdk::{
                 PlayerPlayRequest, PlayerPlayResponse, PlayerProgress, PlayerProgressRequest,
                 PlayerProgressResponse, PlayerRequest, PlayerRequestWithContext, PlayerStatus,
                 PlayerStatusRequest, PlayerStatusResponse, PlayerStopRequest, PlayerStopResponse,
-                PLAYER_BASE_PROVIDER_CAPABILITY, PLAYER_LOAD_EVENT, PLAYER_LOAD_METHOD,
-                PLAYER_PLAY_EVENT, PLAYER_PLAY_METHOD, PLAYER_PROGRESS_EVENT,
+                EVENT_PLAYER_PROGRESS_CHANGED, PLAYER_BASE_PROVIDER_CAPABILITY, PLAYER_LOAD_EVENT,
+                PLAYER_LOAD_METHOD, PLAYER_PLAY_EVENT, PLAYER_PLAY_METHOD, PLAYER_PROGRESS_EVENT,
                 PLAYER_PROGRESS_METHOD, PLAYER_STATUS_EVENT, PLAYER_STATUS_METHOD,
                 PLAYER_STOP_EVENT, PLAYER_STOP_METHOD,
             },
@@ -38,12 +38,39 @@ use ripple_sdk::{
     tokio::sync::oneshot,
     utils::rpc_utils::rpc_err,
 };
+use serde_json::{json, Value};
 
 use crate::{
     firebolt::rpc::RippleRPCProvider,
-    service::apps::provider_broker::{ProviderBroker, ProviderBrokerRequest},
+    service::apps::{
+        app_events::{AppEventDecorationError, AppEventDecorator},
+        provider_broker::{ProviderBroker, ProviderBrokerRequest},
+    },
     state::platform_state::PlatformState,
+    utils::rpc_utils::rpc_add_event_listener_with_decorator,
 };
+
+#[derive(Clone)]
+struct PlayerIdEventDecorator {
+    // player_id: String,
+}
+
+#[async_trait]
+impl AppEventDecorator for PlayerIdEventDecorator {
+    async fn decorate(
+        &self,
+        _ps: &PlatformState,
+        _ctx: &CallContext,
+        _event_name: &str,
+        val_in: &Value,
+    ) -> Result<Value, AppEventDecorationError> {
+        Ok(json!({ "playerId": val_in }))
+    }
+
+    fn dec_clone(&self) -> Box<dyn AppEventDecorator + Send + Sync> {
+        Box::new(self.clone())
+    }
+}
 
 #[rpc(server)]
 pub trait Player {
@@ -186,6 +213,13 @@ pub trait Player {
         ctx: CallContext,
         request: PlayerErrorResponse,
     ) -> RpcResult<Option<()>>;
+
+    #[method(name = "player.onProgressChanged")]
+    async fn on_progress_changed(
+        &self,
+        ctx: CallContext,
+        request: ListenRequest,
+    ) -> RpcResult<ListenerResponse>;
 }
 
 pub struct PlayerImpl {
@@ -472,6 +506,21 @@ impl PlayerServer for PlayerImpl {
         resp: PlayerErrorResponse,
     ) -> RpcResult<Option<()>> {
         self.provider_response(resp).await
+    }
+
+    async fn on_progress_changed(
+        &self,
+        ctx: CallContext,
+        request: ListenRequest,
+    ) -> RpcResult<ListenerResponse> {
+        rpc_add_event_listener_with_decorator(
+            &self.platform_state,
+            ctx,
+            request,
+            EVENT_PLAYER_PROGRESS_CHANGED,
+            Some(Box::new(PlayerIdEventDecorator {})),
+        )
+        .await
     }
 }
 
