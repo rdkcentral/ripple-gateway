@@ -48,8 +48,8 @@ function backup_dot_ripple() {
     echo "Would you like to back it up? (Y/n)"
     read -r confirm
     if [ "$confirm" == "Y" ]; then
-        backup_name=".ripple-$(date +"%F-%H-%M")"
         local backup_name
+        backup_name=".ripple-$(date +"%F-%H-%M")"
         echo "Copying existing ~/.ripple directory to ~/$backup_name"
         mv ~/.ripple ~/"$backup_name"
     elif [ "$confirm" == "n" ]; then
