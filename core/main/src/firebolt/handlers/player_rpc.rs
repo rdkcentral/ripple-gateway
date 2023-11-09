@@ -23,7 +23,8 @@ use ripple_sdk::{
             fb_player::{
                 PlayerErrorResponse, PlayerIdListenRequest, PlayerLoadRequestParams,
                 PlayerLoadResponse, PlayerMediaSession, PlayerPlayRequest, PlayerPlayResponse,
-                PlayerProgress, PlayerProgressRequest, PlayerProgressResponse, PlayerRequest,
+                PlayerProgress, PlayerProgressRequest, PlayerProgressResponse,
+                PlayerProvideProgress, PlayerProvideStatus, PlayerRequest,
                 PlayerRequestWithContext, PlayerStatus, PlayerStatusRequest, PlayerStatusResponse,
                 PlayerStopRequest, PlayerStopResponse, PLAYER_BASE_PROVIDER_CAPABILITY,
                 PLAYER_LOAD_EVENT, PLAYER_LOAD_METHOD, PLAYER_ON_PROGRESS_CHANGED_EVENT,
@@ -45,7 +46,7 @@ use serde_json::{json, Value};
 use crate::{
     firebolt::rpc::RippleRPCProvider,
     service::apps::{
-        app_events::{AppEventDecorationError, AppEventDecorator},
+        app_events::{AppEventDecorationError, AppEventDecorator, AppEvents},
         provider_broker::{ProviderBroker, ProviderBrokerRequest},
     },
     state::platform_state::PlatformState,
@@ -224,12 +225,23 @@ pub trait Player {
         request: PlayerIdListenRequest,
     ) -> RpcResult<ListenerResponse>;
 
+    #[method(name = "player.provideProgress")]
+    async fn provide_progress(
+        &self,
+        ctx: CallContext,
+        request: PlayerProvideProgress,
+    ) -> RpcResult<()>;
+
     #[method(name = "player.onStatusChanged")]
     async fn on_status_changed(
         &self,
         ctx: CallContext,
         request: PlayerIdListenRequest,
     ) -> RpcResult<ListenerResponse>;
+
+    #[method(name = "player.provideStatus")]
+    async fn provide_status(&self, ctx: CallContext, request: PlayerProvideStatus)
+        -> RpcResult<()>;
 }
 
 pub struct PlayerImpl {
@@ -534,6 +546,21 @@ impl PlayerServer for PlayerImpl {
         .await
     }
 
+    async fn provide_progress(
+        &self,
+        _ctx: CallContext,
+        request: PlayerProvideProgress,
+    ) -> RpcResult<()> {
+        AppEvents::emit(
+            &self.platform_state,
+            PLAYER_ON_PROGRESS_CHANGED_EVENT,
+            &serde_json::to_value(request)?,
+        )
+        .await;
+
+        Ok(())
+    }
+
     async fn on_status_changed(
         &self,
         ctx: CallContext,
@@ -547,6 +574,21 @@ impl PlayerServer for PlayerImpl {
             Some(Box::new(PlayerIdEventDecorator {})),
         )
         .await
+    }
+
+    async fn provide_status(
+        &self,
+        _ctx: CallContext,
+        request: PlayerProvideStatus,
+    ) -> RpcResult<()> {
+        AppEvents::emit(
+            &self.platform_state,
+            PLAYER_ON_STATUS_CHANGED_EVENT,
+            &serde_json::to_value(request)?,
+        )
+        .await;
+
+        Ok(())
     }
 }
 

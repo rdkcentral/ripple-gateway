@@ -456,10 +456,31 @@ impl From<PlayerIdListenRequest> for ListenRequest {
     }
 }
 
-// #[derive(Serialize, Deserialize)]
-// #[serde(rename_all = "camelCase")]
-// pub struct PlayerIdListenerResponse {
-//     pub listening: bool,
-//     pub event: String,
-//     pub player_id: String,
-// }
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerProvideProgress {
+    pub player_id: String,
+    pub progress: PlayerProgress,
+}
+
+impl PlayerProvideProgress {
+    pub fn new(player_id: String, progress: PlayerProgress) -> Self {
+        Self {
+            player_id,
+            progress,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerProvideStatus {
+    pub player_id: String,
+    pub status: PlayerStatus,
+}
+
+impl PlayerProvideStatus {
+    pub fn new(player_id: String, status: PlayerStatus) -> Self {
+        Self { player_id, status }
+    }
+}
