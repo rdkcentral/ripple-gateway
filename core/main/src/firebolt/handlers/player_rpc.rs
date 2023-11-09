@@ -21,20 +21,22 @@ use ripple_sdk::{
         firebolt::{
             fb_general::{ListenRequest, ListenerResponse},
             fb_player::{
-                PlayerErrorResponse, PlayerLoadRequest, PlayerLoadResponse, PlayerMediaSession,
-                PlayerPlayRequest, PlayerPlayResponse, PlayerProgress, PlayerProgressRequest,
-                PlayerProgressResponse, PlayerRequest, PlayerRequestWithContext, PlayerStatus,
-                PlayerStatusRequest, PlayerStatusResponse, PlayerStopRequest, PlayerStopResponse,
-                EVENT_PLAYER_PROGRESS_CHANGED, PLAYER_BASE_PROVIDER_CAPABILITY, PLAYER_LOAD_EVENT,
-                PLAYER_LOAD_METHOD, PLAYER_PLAY_EVENT, PLAYER_PLAY_METHOD, PLAYER_PROGRESS_EVENT,
-                PLAYER_PROGRESS_METHOD, PLAYER_STATUS_EVENT, PLAYER_STATUS_METHOD,
-                PLAYER_STOP_EVENT, PLAYER_STOP_METHOD,
+                PlayerErrorResponse, PlayerIdListenRequest, PlayerLoadRequestParams,
+                PlayerLoadResponse, PlayerMediaSession, PlayerPlayRequest, PlayerPlayResponse,
+                PlayerProgress, PlayerProgressRequest, PlayerProgressResponse, PlayerRequest,
+                PlayerRequestWithContext, PlayerStatus, PlayerStatusRequest, PlayerStatusResponse,
+                PlayerStopRequest, PlayerStopResponse, PLAYER_BASE_PROVIDER_CAPABILITY,
+                PLAYER_LOAD_EVENT, PLAYER_LOAD_METHOD, PLAYER_ON_PROGRESS_CHANGED_EVENT,
+                PLAYER_ON_STATUS_CHANGED_EVENT, PLAYER_PLAY_EVENT, PLAYER_PLAY_METHOD,
+                PLAYER_PROGRESS_EVENT, PLAYER_PROGRESS_METHOD, PLAYER_STATUS_EVENT,
+                PLAYER_STATUS_METHOD, PLAYER_STOP_EVENT, PLAYER_STOP_METHOD,
             },
             provider::{ProviderResponsePayload, ToProviderResponse},
         },
         gateway::rpc_gateway_api::CallContext,
     },
     async_trait::async_trait,
+    log::debug,
     tokio::sync::oneshot,
     utils::rpc_utils::rpc_err,
 };
@@ -64,6 +66,7 @@ impl AppEventDecorator for PlayerIdEventDecorator {
         _event_name: &str,
         val_in: &Value,
     ) -> Result<Value, AppEventDecorationError> {
+        debug!("decorating {} {} {:?}", _event_name, val_in, _ctx);
         Ok(json!({ "playerId": val_in }))
     }
 
@@ -85,7 +88,7 @@ pub trait Player {
     async fn load(
         &self,
         ctx: CallContext,
-        request: PlayerLoadRequest,
+        request: PlayerLoadRequestParams,
     ) -> RpcResult<PlayerMediaSession>;
 
     #[method(name = "player.loadResponse")]
@@ -218,7 +221,14 @@ pub trait Player {
     async fn on_progress_changed(
         &self,
         ctx: CallContext,
-        request: ListenRequest,
+        request: PlayerIdListenRequest,
+    ) -> RpcResult<ListenerResponse>;
+
+    #[method(name = "player.onStatusChanged")]
+    async fn on_status_changed(
+        &self,
+        ctx: CallContext,
+        request: PlayerIdListenRequest,
     ) -> RpcResult<ListenerResponse>;
 }
 
@@ -252,10 +262,10 @@ impl PlayerServer for PlayerImpl {
     async fn load(
         &self,
         ctx: CallContext,
-        request: PlayerLoadRequest,
+        request: PlayerLoadRequestParams,
     ) -> RpcResult<PlayerMediaSession> {
         let req = PlayerRequestWithContext {
-            request: PlayerRequest::Load(request),
+            request: PlayerRequest::Load(request.request),
             call_ctx: ctx,
         };
 
@@ -319,7 +329,7 @@ impl PlayerServer for PlayerImpl {
             .call_player_provider(req, PLAYER_BASE_PROVIDER_CAPABILITY)
             .await?
         {
-            ProviderResponsePayload::PlayerPlay(play_response) => Ok(play_response), // TODO: spec says this should be Option<()>
+            ProviderResponsePayload::PlayerPlay(play_response) => Ok(play_response), // TODO: spec says this should be Option<()> - KP said he will change the spec
             _ => Err(rpc_err("Invalid response back from provider")),
         }
     }
@@ -511,13 +521,29 @@ impl PlayerServer for PlayerImpl {
     async fn on_progress_changed(
         &self,
         ctx: CallContext,
-        request: ListenRequest,
+        request: PlayerIdListenRequest,
+    ) -> RpcResult<ListenerResponse> {
+        debug!("opc {:?} {:?}", ctx, request);
+        rpc_add_event_listener_with_decorator(
+            &self.platform_state,
+            ctx,
+            request.into(),
+            PLAYER_ON_PROGRESS_CHANGED_EVENT,
+            Some(Box::new(PlayerIdEventDecorator {})),
+        )
+        .await
+    }
+
+    async fn on_status_changed(
+        &self,
+        ctx: CallContext,
+        request: PlayerIdListenRequest,
     ) -> RpcResult<ListenerResponse> {
         rpc_add_event_listener_with_decorator(
             &self.platform_state,
             ctx,
-            request,
-            EVENT_PLAYER_PROGRESS_CHANGED,
+            request.into(),
+            PLAYER_ON_STATUS_CHANGED_EVENT,
             Some(Box::new(PlayerIdEventDecorator {})),
         )
         .await

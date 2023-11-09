@@ -25,8 +25,11 @@ use crate::{
     framework::ripple_contract::RippleContract,
 };
 
-use super::provider::{
-    ProviderRequestPayload, ProviderResponse, ProviderResponsePayload, ToProviderResponse,
+use super::{
+    fb_general::ListenRequest,
+    provider::{
+        ProviderRequestPayload, ProviderResponse, ProviderResponsePayload, ToProviderResponse,
+    },
 };
 
 pub const PLAYER_LOAD_EVENT: &str = "player.onRequestLoad";
@@ -40,7 +43,7 @@ pub const PLAYER_STATUS_METHOD: &str = "status";
 pub const PLAYER_PROGRESS_EVENT: &str = "player.onRequestProgress";
 pub const PLAYER_PROGRESS_METHOD: &str = "progress";
 pub const PLAYER_ON_PROGRESS_CHANGED_EVENT: &str = "player.onProgressChanged";
-pub const EVENT_PLAYER_PROGRESS_CHANGED: &str = "player.onProgressChanged";
+pub const PLAYER_ON_STATUS_CHANGED_EVENT: &str = "player.onStatusChanged";
 pub const PLAYER_BASE_PROVIDER_CAPABILITY: &str = "xrn:firebolt:capability:player:base";
 
 pub const STREAMING_PLAYER_CREATE_EVENT: &str = "streamingplayer.onRequestCreate";
@@ -115,6 +118,12 @@ impl ExtnPayloadProvider for PlayerRequestWithContext {
     fn contract() -> RippleContract {
         RippleContract::Player(crate::api::player::PlayerAdjective::Base)
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerLoadRequestParams {
+    pub request: PlayerLoadRequest,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -433,3 +442,24 @@ impl ToProviderResponse for StreamingPlayerCreateResponse {
         }
     }
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerIdListenRequest {
+    pub listen: bool,
+    pub player_id: String,
+}
+
+impl From<PlayerIdListenRequest> for ListenRequest {
+    fn from(val: PlayerIdListenRequest) -> Self {
+        ListenRequest { listen: val.listen }
+    }
+}
+
+// #[derive(Serialize, Deserialize)]
+// #[serde(rename_all = "camelCase")]
+// pub struct PlayerIdListenerResponse {
+//     pub listening: bool,
+//     pub event: String,
+//     pub player_id: String,
+// }
