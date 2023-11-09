@@ -447,7 +447,7 @@ impl ToProviderResponse for StreamingPlayerCreateResponse {
 #[serde(rename_all = "camelCase")]
 pub struct PlayerIdListenRequest {
     pub listen: bool,
-    pub player_id: String,
+    pub player_id: Option<String>,
 }
 
 impl From<PlayerIdListenRequest> for ListenRequest {
