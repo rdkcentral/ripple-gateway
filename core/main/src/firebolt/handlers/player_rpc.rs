@@ -41,40 +41,16 @@ use ripple_sdk::{
     tokio::sync::oneshot,
     utils::rpc_utils::rpc_err,
 };
-use serde_json::{json, Value};
 
 use crate::{
     firebolt::rpc::RippleRPCProvider,
     service::apps::{
-        app_events::{AppEventDecorationError, AppEventDecorator, AppEvents},
+        app_events::AppEvents,
         provider_broker::{ProviderBroker, ProviderBrokerRequest},
     },
     state::platform_state::PlatformState,
-    utils::rpc_utils::rpc_add_event_listener_with_decorator,
+    utils::rpc_utils::rpc_add_event_listener,
 };
-
-#[derive(Clone)]
-struct PlayerIdEventDecorator {
-    // player_id: String,
-}
-
-#[async_trait]
-impl AppEventDecorator for PlayerIdEventDecorator {
-    async fn decorate(
-        &self,
-        _ps: &PlatformState,
-        _ctx: &CallContext,
-        _event_name: &str,
-        val_in: &Value,
-    ) -> Result<Value, AppEventDecorationError> {
-        debug!("decorating {} {} {:?}", _event_name, val_in, _ctx);
-        Ok(json!({ "playerId": val_in }))
-    }
-
-    fn dec_clone(&self) -> Box<dyn AppEventDecorator + Send + Sync> {
-        Box::new(self.clone())
-    }
-}
 
 #[rpc(server)]
 pub trait Player {
@@ -536,12 +512,11 @@ impl PlayerServer for PlayerImpl {
         request: PlayerIdListenRequest,
     ) -> RpcResult<ListenerResponse> {
         debug!("opc {:?} {:?}", ctx, request);
-        rpc_add_event_listener_with_decorator(
+        rpc_add_event_listener(
             &self.platform_state,
             ctx,
             request.into(),
             PLAYER_ON_PROGRESS_CHANGED_EVENT,
-            Some(Box::new(PlayerIdEventDecorator {})),
         )
         .await
     }
@@ -551,10 +526,12 @@ impl PlayerServer for PlayerImpl {
         _ctx: CallContext,
         request: PlayerProvideProgress,
     ) -> RpcResult<()> {
+        let event_payload = serde_json::to_value(request)?;
+        debug!("val {}", event_payload);
         AppEvents::emit(
             &self.platform_state,
             PLAYER_ON_PROGRESS_CHANGED_EVENT,
-            &serde_json::to_value(request)?,
+            &event_payload,
         )
         .await;
 
@@ -566,12 +543,11 @@ impl PlayerServer for PlayerImpl {
         ctx: CallContext,
         request: PlayerIdListenRequest,
     ) -> RpcResult<ListenerResponse> {
-        rpc_add_event_listener_with_decorator(
+        rpc_add_event_listener(
             &self.platform_state,
             ctx,
             request.into(),
             PLAYER_ON_STATUS_CHANGED_EVENT,
-            Some(Box::new(PlayerIdEventDecorator {})),
         )
         .await
     }
