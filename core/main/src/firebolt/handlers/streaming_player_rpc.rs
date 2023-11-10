@@ -21,10 +21,10 @@ use ripple_sdk::{
         firebolt::{
             fb_general::{ListenRequest, ListenerResponse},
             fb_player::{
-                PlayerErrorResponse, PlayerRequest, PlayerRequestWithContext,
-                StreamingPlayerCreateRequest, StreamingPlayerCreateResponse,
-                StreamingPlayerInstance, PLAYER_STREAMING_PROVIDER_CAPABILITY,
-                STREAMING_PLAYER_CREATE_EVENT, STREAMING_PLAYER_CREATE_METHOD,
+                PlayerErrorResponse, StreamingPlayerCreateRequest, StreamingPlayerCreateResponse,
+                StreamingPlayerInstance, StreamingPlayerRequest, StreamingPlayerRequestWithContext,
+                PLAYER_STREAMING_PROVIDER_CAPABILITY, STREAMING_PLAYER_CREATE_EVENT,
+                STREAMING_PLAYER_CREATE_METHOD,
             },
             provider::{ProviderResponsePayload, ToProviderResponse},
         },
@@ -105,8 +105,8 @@ impl StreamingPlayerServer for StreamingPlayerImpl {
         &self,
         ctx: CallContext,
     ) -> RpcResult<StreamingPlayerInstance> {
-        let req = PlayerRequestWithContext {
-            request: PlayerRequest::StreamingPlayerCreate(StreamingPlayerCreateRequest),
+        let req = StreamingPlayerRequestWithContext {
+            request: StreamingPlayerRequest::Create(StreamingPlayerCreateRequest),
             call_ctx: ctx,
         };
 
@@ -121,9 +121,11 @@ impl StreamingPlayerServer for StreamingPlayerImpl {
 
     async fn streaming_player_create_response(
         &self,
-        _ctx: CallContext,
+        ctx: CallContext,
         resp: StreamingPlayerCreateResponse,
     ) -> RpcResult<Option<()>> {
+        let mut resp = resp.clone();
+        resp.result.prefix_app_id_to_player_id(&ctx.app_id);
         self.provider_response(resp).await
     }
 
@@ -139,7 +141,7 @@ impl StreamingPlayerServer for StreamingPlayerImpl {
 impl StreamingPlayerImpl {
     async fn call_player_provider(
         &self,
-        request: PlayerRequestWithContext,
+        request: StreamingPlayerRequestWithContext,
         capability: &str,
     ) -> RpcResult<ProviderResponsePayload> {
         let method = String::from(request.request.to_provider_method());
@@ -156,7 +158,7 @@ impl StreamingPlayerImpl {
         ProviderBroker::invoke_method(&self.platform_state, pr_msg).await;
         match session_rx.await {
             Ok(result) => Ok(result),
-            Err(_) => Err(rpc_err("Error returning back from player provider")),
+            Err(_) => Err(rpc_err("Error returning back from player provider")), // TODO: print the error
         }
     }
 

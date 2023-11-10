@@ -54,6 +54,10 @@ pub const PLAYER_STREAMING_PROVIDER_CAPABILITY: &str = "xrn:firebolt:capability:
 // TODO: support error responses
 // TODO: remove all the duplicated boilerplate - macros, traits, generics???
 
+pub enum PlayerRequestError {
+    InvalidPlayerId,
+}
+
 // TODO: try impl serialize to remove enum encoding level
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum PlayerRequest {
@@ -62,24 +66,25 @@ pub enum PlayerRequest {
     Stop(PlayerStopRequest),
     Status(PlayerStatusRequest),
     Progress(PlayerProgressRequest),
-    // TODO: move to own enum
-    StreamingPlayerCreate(StreamingPlayerCreateRequest), // TODO: is empty struct a bit redundant?
 }
 
 impl PlayerRequest {
     pub fn to_provider_request_payload(&self) -> ProviderRequestPayload {
+        let (_, player_id) = self.split_player_id();
+        let player_id = player_id.to_owned();
+
         match self {
-            Self::Load(load_request) => ProviderRequestPayload::PlayerLoad(load_request.clone()),
-            Self::Play(play_request) => ProviderRequestPayload::PlayerPlay(play_request.clone()),
-            Self::Stop(stop_request) => ProviderRequestPayload::PlayerStop(stop_request.clone()),
-            Self::Status(status_request) => {
-                ProviderRequestPayload::PlayerStatus(status_request.clone())
+            Self::Load(load_request) => ProviderRequestPayload::PlayerLoad(PlayerLoadRequest {
+                player_id,
+                ..load_request.clone()
+            }),
+            Self::Play(_) => ProviderRequestPayload::PlayerPlay(PlayerPlayRequest { player_id }),
+            Self::Stop(_) => ProviderRequestPayload::PlayerStop(PlayerStopRequest { player_id }),
+            Self::Status(_) => {
+                ProviderRequestPayload::PlayerStatus(PlayerStatusRequest { player_id })
             }
-            Self::Progress(progress_request) => {
-                ProviderRequestPayload::PlayerProgress(progress_request.clone())
-            }
-            Self::StreamingPlayerCreate(create_request) => {
-                ProviderRequestPayload::StreamingPlayerCreate(create_request.clone())
+            Self::Progress(_) => {
+                ProviderRequestPayload::PlayerProgress(PlayerProgressRequest { player_id })
             }
         }
     }
@@ -91,7 +96,42 @@ impl PlayerRequest {
             Self::Stop(_) => PLAYER_STOP_METHOD,
             Self::Status(_) => PLAYER_STATUS_METHOD,
             Self::Progress(_) => PLAYER_PROGRESS_METHOD,
-            Self::StreamingPlayerCreate(_) => STREAMING_PLAYER_CREATE_METHOD,
+        }
+    }
+
+    pub fn player_id(&self) -> &str {
+        match self {
+            Self::Load(load_request) => &load_request.player_id,
+            Self::Play(play_request) => &play_request.player_id,
+            Self::Stop(stop_request) => &stop_request.player_id,
+            Self::Status(status_request) => &status_request.player_id,
+            Self::Progress(progress_request) => &progress_request.player_id,
+        }
+    }
+
+    pub fn split_player_id(&self) -> (&str, &str) {
+        let player_id = self.player_id();
+        player_id.split_once(':').unwrap_or(("", player_id))
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum StreamingPlayerRequest {
+    Create(StreamingPlayerCreateRequest), // TODO: is empty struct a bit redundant?
+}
+
+impl StreamingPlayerRequest {
+    pub fn to_provider_request_payload(&self) -> ProviderRequestPayload {
+        match self {
+            Self::Create(create_request) => {
+                ProviderRequestPayload::StreamingPlayerCreate(create_request.clone())
+            }
+        }
+    }
+
+    pub fn to_provider_method(&self) -> &str {
+        match self {
+            Self::Create(_) => STREAMING_PLAYER_CREATE_METHOD,
         }
     }
 }
@@ -117,6 +157,30 @@ impl ExtnPayloadProvider for PlayerRequestWithContext {
 
     fn contract() -> RippleContract {
         RippleContract::Player(crate::api::player::PlayerAdjective::Base)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct StreamingPlayerRequestWithContext {
+    pub request: StreamingPlayerRequest,
+    pub call_ctx: CallContext,
+}
+
+impl ExtnPayloadProvider for StreamingPlayerRequestWithContext {
+    fn get_extn_payload(&self) -> ExtnPayload {
+        ExtnPayload::Request(ExtnRequest::StreamingPlayer(self.clone()))
+    }
+
+    fn get_from_payload(payload: ExtnPayload) -> Option<Self> {
+        if let ExtnPayload::Request(ExtnRequest::StreamingPlayer(r)) = payload {
+            return Some(r);
+        }
+
+        None
+    }
+
+    fn contract() -> RippleContract {
+        RippleContract::Player(crate::api::player::PlayerAdjective::Streaming)
     }
 }
 
@@ -259,6 +323,12 @@ pub struct PlayerProgress {
 pub struct StreamingPlayerInstance {
     pub player_id: String,
     pub window_id: String,
+}
+
+impl StreamingPlayerInstance {
+    pub fn prefix_app_id_to_player_id(&mut self, app_id: &str) {
+        self.player_id = format!("{app_id}:{}", self.player_id);
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

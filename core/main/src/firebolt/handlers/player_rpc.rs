@@ -373,7 +373,7 @@ impl PlayerServer for PlayerImpl {
             .call_player_provider(req, PLAYER_BASE_PROVIDER_CAPABILITY)
             .await?
         {
-            ProviderResponsePayload::PlayerStop(stop_response) => Ok(stop_response), // TODO: spec says this should be Option<()>
+            ProviderResponsePayload::PlayerStop(stop_response) => Ok(stop_response), // TODO: spec says this should be Option<()> - KP said he will change the spec
             _ => Err(rpc_err("Invalid response back from provider")),
         }
     }
@@ -582,15 +582,16 @@ impl PlayerImpl {
         capability: &str,
     ) -> RpcResult<ProviderResponsePayload> {
         let method = String::from(request.request.to_provider_method());
+        let (app_id, _) = request.request.split_player_id();
         let (session_tx, session_rx) = oneshot::channel::<ProviderResponsePayload>();
         let pr_msg = ProviderBrokerRequest {
-            // TODO which capability this rpc method providers should come from firebolt spec
+            // TODO which capability this rpc method provides should come from firebolt spec
             capability: capability.to_string(),
             method,
             caller: request.call_ctx.clone().into(),
             request: request.request.to_provider_request_payload(),
             tx: session_tx,
-            app_id: None, // TODO: should we be using this?
+            app_id: Some(app_id.to_owned()), // TODO: should we be using this?
         };
         ProviderBroker::invoke_method(&self.platform_state, pr_msg).await;
         match session_rx.await {
