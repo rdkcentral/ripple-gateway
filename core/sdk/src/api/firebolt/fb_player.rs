@@ -251,7 +251,7 @@ pub struct PlayerProgress {
     pub start_position: u32,
     pub position: u32,
     pub end_position: u32,
-    pub live_sync_time: String,
+    pub live_sync_time: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
