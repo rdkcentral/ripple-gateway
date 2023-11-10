@@ -153,7 +153,7 @@ impl StreamingPlayerImpl {
             caller: request.call_ctx.clone().into(),
             request: request.request.to_provider_request_payload(),
             tx: session_tx,
-            app_id: None, // TODO: should we be using this?
+            app_id: None,
         };
         ProviderBroker::invoke_method(&self.platform_state, pr_msg).await;
         match session_rx.await {

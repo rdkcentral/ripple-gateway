@@ -524,7 +524,7 @@ impl PlayerServer for PlayerImpl {
 
     async fn provide_progress(
         &self,
-        _ctx: CallContext,
+        ctx: CallContext,
         request: PlayerProvideProgress,
     ) -> RpcResult<()> {
         let player_id = request.player_id.clone();
@@ -533,7 +533,9 @@ impl PlayerServer for PlayerImpl {
             &self.platform_state,
             PLAYER_ON_PROGRESS_CHANGED_EVENT,
             &event_payload,
-            Some(json!({ "playerId": player_id })),
+            Some(json!({
+                "playerId": format!("{}:{}", ctx.app_id, player_id)
+            })),
         )
         .await;
 
@@ -558,7 +560,7 @@ impl PlayerServer for PlayerImpl {
 
     async fn provide_status(
         &self,
-        _ctx: CallContext,
+        ctx: CallContext,
         request: PlayerProvideStatus,
     ) -> RpcResult<()> {
         let player_id = request.player_id.clone();
@@ -567,7 +569,9 @@ impl PlayerServer for PlayerImpl {
             &self.platform_state,
             PLAYER_ON_STATUS_CHANGED_EVENT,
             &event_payload,
-            Some(json!({ "playerId": player_id })),
+            Some(json!({
+                "playerId": format!("{}:{}", ctx.app_id, player_id)
+            })),
         )
         .await;
 
@@ -591,7 +595,7 @@ impl PlayerImpl {
             caller: request.call_ctx.clone().into(),
             request: request.request.to_provider_request_payload(),
             tx: session_tx,
-            app_id: Some(app_id.to_owned()), // TODO: should we be using this?
+            app_id: Some(app_id.to_owned()),
         };
         ProviderBroker::invoke_method(&self.platform_state, pr_msg).await;
         match session_rx.await {
