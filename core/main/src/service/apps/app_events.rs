@@ -155,6 +155,7 @@ impl AppEvents {
         event_name: String,
         event_context: Option<String>,
     ) -> &mut Vec<EventListener> {
+        // TODO: refactor to use entry and remove unwraps: https://github.com/rust-lang/rust/issues/21644
         match listeners.get_mut(&event_name) {
             None => {
                 let mut entry = HashMap::new();
@@ -337,7 +338,7 @@ impl AppEvents {
         result: &Value,
         context: Option<Value>,
     ) {
-        // Notify all the default listners by providing the context data as part of the result when context
+        // Notify all the default listeners by providing the context data as part of the result when context
         // is present. Otherwise event result without context.
         let listeners = AppEvents::get_listeners(&state.app_events_state, event_name, None);
         for i in listeners {

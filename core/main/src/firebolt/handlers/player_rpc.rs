@@ -37,10 +37,10 @@ use ripple_sdk::{
         gateway::rpc_gateway_api::CallContext,
     },
     async_trait::async_trait,
-    log::debug,
     tokio::sync::oneshot,
     utils::rpc_utils::rpc_err,
 };
+use serde_json::json;
 
 use crate::{
     firebolt::rpc::RippleRPCProvider,
@@ -49,7 +49,7 @@ use crate::{
         provider_broker::{ProviderBroker, ProviderBrokerRequest},
     },
     state::platform_state::PlatformState,
-    utils::rpc_utils::rpc_add_event_listener,
+    utils::rpc_utils::rpc_add_event_listener_with_context,
 };
 
 #[rpc(server)]
@@ -511,12 +511,13 @@ impl PlayerServer for PlayerImpl {
         ctx: CallContext,
         request: PlayerIdListenRequest,
     ) -> RpcResult<ListenerResponse> {
-        debug!("opc {:?} {:?}", ctx, request);
-        rpc_add_event_listener(
+        let player_id = request.player_id.clone();
+        rpc_add_event_listener_with_context(
             &self.platform_state,
             ctx,
             request.into(),
             PLAYER_ON_PROGRESS_CHANGED_EVENT,
+            json!({ "playerId": player_id }),
         )
         .await
     }
@@ -526,12 +527,13 @@ impl PlayerServer for PlayerImpl {
         _ctx: CallContext,
         request: PlayerProvideProgress,
     ) -> RpcResult<()> {
+        let player_id = request.player_id.clone();
         let event_payload = serde_json::to_value(request)?;
-        debug!("val {}", event_payload);
-        AppEvents::emit(
+        AppEvents::emit_with_context(
             &self.platform_state,
             PLAYER_ON_PROGRESS_CHANGED_EVENT,
             &event_payload,
+            Some(json!({ "playerId": player_id })),
         )
         .await;
 
@@ -543,11 +545,13 @@ impl PlayerServer for PlayerImpl {
         ctx: CallContext,
         request: PlayerIdListenRequest,
     ) -> RpcResult<ListenerResponse> {
-        rpc_add_event_listener(
+        let player_id = request.player_id.clone();
+        rpc_add_event_listener_with_context(
             &self.platform_state,
             ctx,
             request.into(),
             PLAYER_ON_STATUS_CHANGED_EVENT,
+            json!({ "playerId": player_id }),
         )
         .await
     }
@@ -557,10 +561,13 @@ impl PlayerServer for PlayerImpl {
         _ctx: CallContext,
         request: PlayerProvideStatus,
     ) -> RpcResult<()> {
-        AppEvents::emit(
+        let player_id = request.player_id.clone();
+        let event_payload = serde_json::to_value(request)?;
+        AppEvents::emit_with_context(
             &self.platform_state,
             PLAYER_ON_STATUS_CHANGED_EVENT,
-            &serde_json::to_value(request)?,
+            &event_payload,
+            Some(json!({ "playerId": player_id })),
         )
         .await;
 

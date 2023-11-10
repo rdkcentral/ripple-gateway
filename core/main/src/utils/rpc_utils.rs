@@ -26,6 +26,7 @@ use ripple_sdk::{
     },
     tokio::sync::oneshot,
 };
+use serde_json::Value;
 
 use crate::{
     service::apps::app_events::{AppEventDecorator, AppEvents},
@@ -65,7 +66,7 @@ pub async fn rpc_add_event_listener(
     })
 }
 
-/// listener for events any events.
+/// listener for events to be decorated
 pub async fn rpc_add_event_listener_with_decorator(
     state: &PlatformState,
     ctx: CallContext,
@@ -76,6 +77,29 @@ pub async fn rpc_add_event_listener_with_decorator(
     let listen = request.listen;
 
     AppEvents::add_listener_with_decorator(state, event_name.to_string(), ctx, request, decorator);
+    Ok(ListenerResponse {
+        listening: listen,
+        event: event_name.into(),
+    })
+}
+
+/// listener for events that match context
+pub async fn rpc_add_event_listener_with_context(
+    state: &PlatformState,
+    ctx: CallContext,
+    request: ListenRequest,
+    event_name: &'static str,
+    event_context: Value,
+) -> RpcResult<ListenerResponse> {
+    let listen = request.listen;
+
+    AppEvents::add_listener_with_context(
+        state,
+        event_name.to_string(),
+        ctx,
+        request,
+        Some(event_context),
+    );
     Ok(ListenerResponse {
         listening: listen,
         event: event_name.into(),
