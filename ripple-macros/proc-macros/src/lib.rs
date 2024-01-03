@@ -38,6 +38,11 @@ pub fn counted(args: TokenStream, input: TokenStream) -> TokenStream {
     };
     TokenStream::from(expanded)
 }
+/*
+ CI tickets:
+ 1_ Service user(s) to run the CI and prevent re-upload of same release 
+ 2 auto version increment 
+ */
 
 fn parse(args: TokenStream2, input: TokenStream2) -> Result<ItemFn> {
     let function: ItemFn = syn::parse2(input)?;
