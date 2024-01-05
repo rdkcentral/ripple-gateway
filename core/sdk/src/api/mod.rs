@@ -31,6 +31,7 @@ pub mod status_update;
 pub mod storage_property;
 pub mod usergrant_entry;
 pub mod wifi;
+pub mod ping;
 
 pub mod gateway {
     pub mod rpc_error;
