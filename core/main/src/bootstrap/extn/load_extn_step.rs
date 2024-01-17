@@ -24,7 +24,7 @@ use ripple_sdk::{
         ffi::{ffi_channel::load_channel_builder, ffi_jsonrpsee::load_jsonrpsee_methods},
     },
     framework::bootstrap::Bootstep,
-    log::{debug, error, info},
+    log::{debug, error, info, warn},
     utils::error::RippleError,
 };
 
@@ -62,12 +62,18 @@ impl Bootstep<BootstrapState> for LoadExtensionsStep {
                     extn.metadata.symbols.len()
                 );
                 let channels = extn.get_channels();
+                if channels.len() == 0 {
+                    warn!("LoadExtensionsStep: No channels found in {}. This extension will not receive any message from ripple, and might not do much", path);
+                }
                 let extensions = extn.get_extns();
                 for channel in channels {
-                    debug!("loading channel builder for {}", channel.id);
+                    debug!(
+                        "LoadExtensionsStep: loading channel builder for {}",
+                        channel.id
+                    );
                     if let Ok(extn_id) = ExtnId::try_from(channel.id.clone()) {
                         if let Ok(builder) = load_channel_builder(library) {
-                            debug!("building channel {}", channel.id);
+                            debug!("LoadExtensionsStep: building channel {}", channel.id);
                             if let Ok(extn_channel) = (builder.build)(extn_id.to_string()) {
                                 let preloaded_channel = PreLoadedExtnChannel {
                                     channel: extn_channel,

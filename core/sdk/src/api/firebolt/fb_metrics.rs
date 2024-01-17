@@ -27,7 +27,7 @@ use crate::{
     framework::ripple_contract::RippleContract,
 };
 
-use super::fb_telemetry::TelemetryPayload;
+use super::fb_telemetry::{TelemetryPayload, OperationalMetricRequest};
 
 //https://developer.comcast.com/firebolt/core/sdk/latest/api/metrics
 
@@ -400,12 +400,18 @@ are only used for operational/performance measurement - timers, counters, etc -a
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Counter {
     pub name: String,
-    pub value: u32,
-    pub tags: Vec<String>,
+    pub value: u64,
+    /*
+    TODO... this needs to be a map 
+    */
+    
+    pub tags: Option<Vec<String>>,
 }
 impl Counter {
-    pub fn new(name: String, value: u32, tags: Vec<String>) -> Counter {
-        Counter { name, value, tags }
+    pub fn new(name: String, value: u64, tags: Option<Vec<String>>) -> Counter {
+        Counter { name: format!("{}_counter", name), 
+            value: value, 
+            tags: tags }
     }
     pub fn increment(&mut self) {
         self.value += 1;
@@ -413,23 +419,41 @@ impl Counter {
     pub fn decrement(&mut self) {
         self.value -= 1;
     }
-    pub fn set_value(&mut self, value: u32) {
+    pub fn set_value(&mut self, value: u64) {
         self.value = value;
     }
-    pub fn add(&mut self, value: u32) {
+    pub fn add(&mut self, value: u64) {
         self.value += value;
     }
-    pub fn subtract(&mut self, value: u32) {
+    pub fn subtract(&mut self, value: u64) {
         self.value -= value;
     }
     pub fn reset(&mut self) {
         self.value = 0;
     }
-    pub fn get(&self) -> u32 {
+    pub fn get(&self) -> u64 {
         self.value
     }
     pub fn tag(&mut self, tag: String) -> () {
-        self.tags.push(tag);
+        if let(Some(my_tags)) = self.tags.as_mut() {
+            my_tags.push(tag);
+        }
+        
+    }
+    pub fn error(&mut self) {
+        if let(Some(my_tags)) = self.tags.as_mut() {
+            my_tags.push("error".to_string());
+        }
+    }
+    pub fn is_error(&self) -> bool {
+        if let(Some(my_tags)) = &self.tags {
+            my_tags.contains(&"error".to_string())
+        }else {
+            false
+        }
+    }
+    pub fn to_extn_request(&self) -> OperationalMetricRequest {
+        OperationalMetricRequest::Counter(self.clone())
     }
 }
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -439,12 +463,15 @@ pub struct Timer {
     pub start: std::time::Instant,
     #[serde(with = "serde_millis")]
     pub stop: Option<std::time::Instant>,
+    /*
+    TODO... this needs to be a map 
+    */
     pub tags: Vec<String>,
 }
 impl Timer {
     pub fn start(name: String, tags: Option<Vec<String>>) -> Timer {
         Timer {
-            name: name,
+            name: format!("{}_timer_ms",name),
             start: std::time::Instant::now(),
             stop: None,
             tags: tags.unwrap_or(vec![]),
@@ -458,8 +485,9 @@ impl Timer {
             tags: tags.unwrap_or(vec![]),
         }
     }
-    pub fn stop(&mut self) {
+    pub fn stop(&mut self) -> Timer {
         self.stop = Some(std::time::Instant::now());
+        Timer::from(self.clone())
     }
     pub fn restart(&mut self) {
         self.start = std::time::Instant::now();
@@ -471,6 +499,38 @@ impl Timer {
             None => self.start.elapsed(),
         }
     }
+    pub fn error(&mut self) {
+        self.tags.push("error".to_string());
+    }
+    pub fn is_error(&self) -> bool {
+        self.tags.contains(&"error".to_string())
+    }
+    pub fn to_extn_request(&self) -> OperationalMetricRequest {
+        OperationalMetricRequest::Timer(self.clone())
+    }
+    
+}
+
+static FIREBOLT_RPC_NAME:&str  = "firebolt_rpc_call";
+impl From<Timer> for OperationalMetricRequest {
+    fn from(timer: Timer) -> Self {
+        OperationalMetricRequest::Timer(timer)
+    }
+}
+
+pub fn fb_api_timer(method_name: String, tags:Option<Vec<String>>) -> Timer {
+   let timer_tags =  match tags {
+        Some(mut tags) => {
+            tags.push(FIREBOLT_RPC_NAME.to_string());
+            tags
+            
+        },
+        None => {
+            vec![method_name]
+        },
+    };
+
+    Timer::start(FIREBOLT_RPC_NAME.to_string(), Some(timer_tags))
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -46,6 +46,11 @@ impl LoadExtensionMetadataStep {
 
         let library = r.unwrap();
         let metadata = load_extn_library_metadata(&library);
+        debug!(
+            "LoadExtensionMetadataStep: metadata {:?} from {}",
+            metadata,
+            filename.as_ref().to_str().unwrap()
+        );
         if let Some(metadata) = metadata {
             return Some(LoadedLibrary::new(library, metadata, entry));
         }
