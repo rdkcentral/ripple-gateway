@@ -17,20 +17,20 @@ it onto something else to render , transmit, etc. the value of the timer
 /*
 hat tip: https://github.com/dtolnay/no-panic/blob/master/src/lib.rs
 */
-#[proc_macro_attribute]
-//  args are...args, and input is the function to be decorated
-pub fn timed(_args: TokenStream, input: TokenStream) -> TokenStream {
-    let input = TokenStream2::from(input);
-    TokenStream::from(input)
-}
+// #[proc_macro_attribute]
+// //  args are...args, and input is the function to be decorated
+// pub fn timed(_args: TokenStream, input: TokenStream) -> TokenStream {
+//     let input = TokenStream2::from(input);
+//     TokenStream::from(input)
+// }
 
 #[proc_macro_attribute]
 // attr is args to macro, item is the function to be decorated
-pub fn counted(args: TokenStream, input: TokenStream) -> TokenStream {
+pub fn timed(args: TokenStream, input: TokenStream) -> TokenStream {
     let args = TokenStream2::from(args);
     let input = TokenStream2::from(input);
     let expanded = match parse(args, input.clone()) {
-        Ok(function) => wrap_counted(function),
+        Ok(function) => wrap_timed(function),
         Err(parse_error) => {
             let compile_error = parse_error.to_compile_error();
             quote!(#compile_error #input)
@@ -51,7 +51,7 @@ fn parse(args: TokenStream2, input: TokenStream2) -> Result<ItemFn> {
     Ok(function)
 }
 //write a function that takes a function and returns a f
-fn wrap_counted(function: ItemFn) -> TokenStream2 {
+fn wrap_timed(function: ItemFn) -> TokenStream2 {
     let mut wrapper = function.clone();
     /*
     determine if function is async  or not
@@ -95,6 +95,7 @@ fn wrap_counted(function: ItemFn) -> TokenStream2 {
         let mut timer = ripple_sdk::api::firebolt::fb_metrics::Timer::start(String::from("atimer"), None);
         let result = #original_block;
         timer.stop();        
+        println!("timer: {:?}",timer.elapsed());
         result
     }));
 
@@ -109,7 +110,7 @@ fn wrap_counted(function: ItemFn) -> TokenStream2 {
                 #mutant
         }
     };
-    println!("wrapper: \n {}", wrapper);
+    //println!("wrapper: \n {}", wrapper);
 
     wrapper
 }
