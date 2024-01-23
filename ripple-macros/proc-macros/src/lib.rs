@@ -38,14 +38,11 @@ pub fn timed(args: TokenStream, input: TokenStream) -> TokenStream {
     };
     TokenStream::from(expanded)
 }
-/*
-CI tickets:
-1_ Service user(s) to run the CI and prevent re-upload of same release
-2 auto version increment
-*/
+
 
 fn parse(args: TokenStream2, input: TokenStream2) -> Result<ItemFn> {
     let function: ItemFn = syn::parse2(input)?;
+
     let _: Nothing = syn::parse2::<Nothing>(args)?;
 
     Ok(function)
@@ -56,12 +53,16 @@ fn wrap_timed(function: ItemFn) -> TokenStream2 {
     /*
     determine if function is async  or not
     */
+    println!("async {:?}",function.sig.asyncness);
+    println!("const {:?}",function.sig.constness);
+    println!("ident {:?}",function.sig.ident);
     let is_async = function.sig.asyncness.is_some();
+    //println!("is_async={} ",is_async);
     //extract the return type of the function
     let return_type = match &function.sig.output {
         ReturnType::Default => quote!(-> ()),
         ReturnType::Type(arrow, output) => {
-            quote!(#arrow #output.clone())
+            quote!(#arrow #output)
         }
     };
     //extract the name of the function
@@ -81,14 +82,14 @@ fn wrap_timed(function: ItemFn) -> TokenStream2 {
                 // let arg_type = quote!(#ty);
                 args.push(arg_name);
             }
-            FnArg::Receiver(_) => {
-                //do nothing
+            FnArg::Receiver(rx) => {
+                args.push(quote!(&self))
             }
         }
     }
 
     let original_block = function.block.clone();
-    //println!("original block: {:?}",quote!{#original_block});
+  
     let mut mutant = function.block.clone();
     mutant.stmts.clear();
     mutant.stmts.insert(0,parse_quote!({
@@ -101,16 +102,16 @@ fn wrap_timed(function: ItemFn) -> TokenStream2 {
 
     let wrapper = if is_async {
         quote! {
-            pub async  fn #function_name(#(#args),*) #return_type
+            async fn #function_name(#(#args),*) #return_type
                 #mutant
         }
     } else {
         quote! {
-            pub fn #function_name(#(#args),*) #return_type
+            fn #function_name(#(#args),*) #return_type
                 #mutant
         }
     };
-    //println!("wrapper: \n {}", wrapper);
+    println!("wrapper: \n {}", wrapper);
 
     wrapper
 }
