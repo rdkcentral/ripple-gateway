@@ -71,4 +71,7 @@ pub mod firebolt {
     pub mod fb_user_grants;
     pub mod provider;
 }
+pub mod observability {
+    pub mod operational_metrics;
+}
 
