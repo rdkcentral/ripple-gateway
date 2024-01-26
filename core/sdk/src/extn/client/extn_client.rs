@@ -237,7 +237,10 @@ impl ExtnClient {
                         continue;
                     }
                     let message = message_result.unwrap();
-                    debug!("** receiving message latency={} msg={:?}", latency, message);
+                    debug!(
+                        "**initialize: receiving message latency={} msg={:?}",
+                        latency, message
+                    );
                     if message.payload.is_response() {
                         Self::handle_single(message, self.response_processors.clone());
                     } else if message.payload.is_event() {
@@ -572,6 +575,10 @@ impl ExtnClient {
                     if let Some(v) = message.payload.extract() {
                         return Ok(v);
                     } else {
+                        error!(
+                            "payload extract failed for {:?} in standalone_request",
+                            message
+                        );
                         return Err(RippleError::ParseError);
                     }
                 }
@@ -615,14 +622,17 @@ impl ExtnClient {
                 Ok(cmessage) => {
                     let latency = Utc::now().timestamp_millis() - cmessage.ts;
                     debug!(
-                        "** receiving message latency={} msg={:?}",
+                        "** request_sync: receiving message latency={} msg={:?}",
                         latency, cmessage
                     );
                     let message: ExtnMessage = cmessage.try_into().unwrap();
                     if let Some(v) = message.payload.extract() {
                         return Ok(v);
                     } else {
-                        error!("Bad response for {:?}", payload.get_extn_payload());
+                        error!(
+                            "Bad response for {:?} in request_sync",
+                            payload.get_extn_payload()
+                        );
                         return Err(RippleError::ParseError);
                     }
                 }

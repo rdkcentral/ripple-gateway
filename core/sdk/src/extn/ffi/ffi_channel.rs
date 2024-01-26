@@ -41,14 +41,25 @@ pub struct ExtnChannelBuilder {
 /// TODO: Why is this unsafe allowed here? https://rust-lang.github.io/rust-clippy/master/index.html#missing_safety_doc
 pub unsafe fn load_channel_builder(lib: &Library) -> Result<Box<ExtnChannelBuilder>, RippleError> {
     type LibraryFfi = unsafe fn() -> *mut ExtnChannelBuilder;
+    debug!(
+        "ExtnChannelBuilder: Attempting to loading Device Extn Builder symbol from library: {:?}",
+        lib
+    );
+
     let r = lib.get(b"channel_builder_create");
     match r {
         Ok(r) => {
-            debug!("Device Extn Builder Symbol extracted from library");
+            debug!(
+                "ExtnChannelBuilder: Device Extn Builder Symbol extracted from library: {:?}",
+                lib
+            );
             let constructor: Symbol<LibraryFfi> = r;
             return Ok(Box::from_raw(constructor()));
         }
-        Err(e) => error!("Device Extn Builder symbol loading failed {:?}", e),
+        Err(e) => error!(
+            "ExtnChannelBuilder: Device Extn Builder symbol loading failed {:?}",
+            e
+        ),
     }
     Err(RippleError::ExtnError)
 }

@@ -192,7 +192,7 @@ impl ExtnPayloadProvider for TelemetryPayload {
     }
 
     fn contract() -> RippleContract {
-        RippleContract::OperationalMetricListener
+        RippleContract::TelemetryEventsListener
     }
 }
 
@@ -202,21 +202,4 @@ pub enum OperationalMetricRequest {
     UnSubscribe,
     Counter(Counter),
     Timer(Timer),
-}
-
-impl ExtnPayloadProvider for OperationalMetricRequest {
-    fn get_extn_payload(&self) -> ExtnPayload {
-        ExtnPayload::Request(ExtnRequest::OperationalMetricsRequest(self.clone()))
-    }
-
-    fn get_from_payload(payload: ExtnPayload) -> Option<OperationalMetricRequest> {
-        if let ExtnPayload::Request(ExtnRequest::OperationalMetricsRequest(r)) = payload {
-            return Some(r);
-        }
-        None
-    }
-
-    fn contract() -> RippleContract {
-        RippleContract::OperationalMetricListener
-    }
 }

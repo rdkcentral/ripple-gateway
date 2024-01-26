@@ -15,6 +15,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
+use std::path::Display;
+
 use jsonrpsee::{core::server::rpc_module::Methods, types::TwoPointZero};
 use ripple_sdk::{
     api::{
@@ -79,9 +81,12 @@ pub enum FireboltGatewayCommand {
 
 impl FireboltGateway {
     pub fn new(state: BootstrapState, methods: Methods) -> FireboltGateway {
-        for method in methods.method_names() {
-            info!("Adding RPC method {}", method);
-        }
+        let method_names: Vec<String> = methods
+            .method_names()
+            .into_iter()
+            .map(|x| x.to_string())
+            .collect();
+        info!("added rpc methods: {}", method_names.join(", "));
         state.platform_state.router_state.update_methods(methods);
         FireboltGateway { state }
     }

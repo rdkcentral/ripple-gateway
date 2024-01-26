@@ -36,6 +36,7 @@ use crate::{
         },
         distributor::{
             distributor_permissions::{PermissionRequest, PermissionResponse},
+            distributor_ping::{DistributorPingRequest, DistributorPingResponse},
             distributor_platform::PlatformTokenRequest,
             distributor_privacy::{PrivacyCloudRequest, PrivacySettingsStoreRequest},
             distributor_request::DistributorRequest,
@@ -271,6 +272,7 @@ pub enum ExtnRequest {
     PlatformToken(PlatformTokenRequest),
     DistributorToken(DistributorTokenRequest),
     Context(RippleContextUpdateRequest),
+    Ping(DistributorPingRequest),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -300,6 +302,7 @@ pub enum ExtnResponse {
     BoolMap(HashMap<String, bool>),
     Advertising(AdvertisingResponse),
     SecureStorage(SecureStorageResponse),
+    Pong(DistributorPingResponse),
 }
 
 impl ExtnPayloadProvider for ExtnResponse {

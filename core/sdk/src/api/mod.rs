@@ -31,7 +31,6 @@ pub mod status_update;
 pub mod storage_property;
 pub mod usergrant_entry;
 pub mod wifi;
-pub mod ping;
 
 pub mod gateway {
     pub mod rpc_error;
@@ -42,6 +41,7 @@ pub mod distributor {
     pub mod distributor_discovery;
     pub mod distributor_encoder;
     pub mod distributor_permissions;
+    pub mod distributor_ping;
     pub mod distributor_platform;
     pub mod distributor_privacy;
     pub mod distributor_request;
@@ -69,4 +69,8 @@ pub mod firebolt {
     pub mod fb_telemetry;
     pub mod fb_user_grants;
     pub mod provider;
+}
+
+pub mod observability {
+    pub mod operational_metrics;
 }

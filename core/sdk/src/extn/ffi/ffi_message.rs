@@ -23,6 +23,7 @@ use crate::{
         extn_id::ExtnId,
     },
     framework::ripple_contract::RippleContract,
+    log::error,
     utils::error::RippleError,
 };
 
@@ -79,6 +80,7 @@ impl TryInto<ExtnMessage> for CExtnMessage {
 
         let payload: Result<ExtnPayload, RippleError> = self.payload.try_into();
         if payload.is_err() {
+            error!("Error parsing payload: {:?} into ExtnPayload", payload);
             return Err(RippleError::ParseError);
         }
         let payload = payload.unwrap();

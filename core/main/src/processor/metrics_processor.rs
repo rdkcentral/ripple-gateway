@@ -21,7 +21,7 @@ use ripple_sdk::{
         firebolt::{
             fb_metrics::{
                 AppDataGovernanceState, BehavioralMetricContext, BehavioralMetricPayload,
-                BehavioralMetricRequest, MetricsPayload, MetricsRequest,
+                BehavioralMetricRequest, Counter, MetricsPayload, MetricsRequest, Timer,
             },
             fb_telemetry::OperationalMetricRequest,
         },
@@ -34,13 +34,16 @@ use ripple_sdk::{
         },
         extn_client_message::{ExtnMessage, ExtnResponse},
     },
-    framework::RippleResponse,
+    framework::{ripple_contract::RippleContract, RippleResponse},
     log::{debug, info},
     tokio::sync::mpsc::{Receiver as MReceiver, Sender as MSender},
 };
 
 use crate::{
-    service::{data_governance::DataGovernance, telemetry_builder::TelemetryBuilder},
+    service::{
+        data_governance::DataGovernance, observability::ObservabilityClient,
+        telemetry_builder::TelemetryBuilder,
+    },
     state::platform_state::PlatformState,
     SEMVER_LIGHTWEIGHT,
 };
@@ -201,22 +204,37 @@ impl ExtnRequestProcessor for MetricsProcessor {
         let client = state.get_client().get_extn_client();
         match extracted_message.payload {
             MetricsPayload::BehaviorMetric(b, c) => {
+                let counter = Counter::new("behavioral_metrics".to_string(), 0, None);
+                /*TODO bobra200 - add *appropriate* From<> for BehavioralMetric -> Opsmetric */
                 return match send_behavioral_metric(&state, b, &c).await {
-                    Ok(_) => Self::ack(client, msg).await.is_ok(),
-                    Err(e) => Self::handle_error(client, msg, e).await,
-                }
+                    Ok(_) => {
+                        ObservabilityClient::report(
+                            &state,
+                            OperationalMetricRequest::Counter(counter.clone()),
+                        );
+                        Self::ack(client, msg).await.is_ok()
+                    }
+                    Err(e) => {
+                        Self::handle_error(client, msg, e).await;
+                        counter.clone().error();
+                        ObservabilityClient::report(
+                            &state,
+                            OperationalMetricRequest::Counter(counter.clone()),
+                        );
+                        false
+                    }
+                };
             }
             MetricsPayload::TelemetryPayload(t) => {
                 TelemetryBuilder::update_session_id_and_send_telemetry(&state, t).is_ok()
             }
             MetricsPayload::OperationalMetric(operational_metric) => {
-                println!("operational_metric: {:?}", operational_metric);
+                info!("handler_operationalmetric: {:?}", operational_metric);
                 true
             }
         }
     }
 }
-
 
 #[cfg(test)]
 pub mod tests {
@@ -246,7 +264,7 @@ pub mod tests {
             ripple_sdk::extn::extn_id::ExtnClassId::Device,
             "test".to_string(),
         );
-        let counter = Counter::new("test".to_string(), 1, vec![]);
+        let counter = Counter::new("test".to_string(), 1, None);
         let payload = OperationalMetricPayload::Counter(counter.clone());
         let metrics_payload = MetricsPayload::OperationalMetric(payload);
         let metrics_request = MetricsRequest {

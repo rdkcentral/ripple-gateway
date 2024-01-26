@@ -113,7 +113,7 @@ pub enum RippleContract {
     /// Contract for Main to forward behavior and operational metrics to processors
     Metrics,
     /// Contract for Extensions to recieve Telemetry events from Main
-    OperationalMetricListener,
+    TelemetryEventsListener,
     Storage(StorageAdjective),
     /// Provided by the distributor could be a device extension or a cloud extension.
     /// Distributor gets the ability to configure and customize the generation of
@@ -121,6 +121,9 @@ pub enum RippleContract {
     Session(SessionAdjective),
 
     RippleContext,
+    Observability,
+    /*used for examples */
+    Ping,
 }
 
 pub trait ContractAdjective: serde::ser::Serialize {

@@ -21,6 +21,7 @@ use super::{
     distributor_discovery::{DiscoveryRequest, MediaEventRequest},
     distributor_encoder::EncoderRequest,
     distributor_permissions::PermissionRequest,
+    distributor_ping::DistributorPingRequest,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29,4 +30,5 @@ pub enum DistributorRequest {
     Discovery(DiscoveryRequest),
     MediaEvent(MediaEventRequest),
     Encoder(EncoderRequest),
+    Ping(DistributorPingRequest),
 }

@@ -27,7 +27,7 @@ use crate::{
     framework::ripple_contract::RippleContract,
 };
 
-use super::fb_telemetry::{TelemetryPayload, OperationalMetricRequest};
+use super::fb_telemetry::{OperationalMetricRequest, TelemetryPayload};
 
 //https://developer.comcast.com/firebolt/core/sdk/latest/api/metrics
 
@@ -402,16 +402,17 @@ pub struct Counter {
     pub name: String,
     pub value: u64,
     /*
-    TODO... this needs to be a map 
+    TODO... this needs to be a map
     */
-    
-    pub tags: Option<Vec<String>>,
+    pub tags: Option<HashMap<String, String>>,
 }
 impl Counter {
-    pub fn new(name: String, value: u64, tags: Option<Vec<String>>) -> Counter {
-        Counter { name: format!("{}_counter", name), 
-            value: value, 
-            tags: tags }
+    pub fn new(name: String, value: u64, tags: Option<HashMap<String, String>>) -> Counter {
+        Counter {
+            name: format!("{}_counter", name),
+            value: value,
+            tags: tags,
+        }
     }
     pub fn increment(&mut self) {
         self.value += 1;
@@ -434,21 +435,28 @@ impl Counter {
     pub fn get(&self) -> u64 {
         self.value
     }
-    pub fn tag(&mut self, tag: String) -> () {
-        if let(Some(my_tags)) = self.tags.as_mut() {
-            my_tags.push(tag);
+    pub fn tag(&mut self, tag_name: String, tag_value: String) -> () {
+        if let (Some(my_tags)) = self.tags.as_mut() {
+            my_tags.insert(tag_name, tag_value);
+        } else {
+            let mut the_map = HashMap::new();
+            the_map.insert(tag_name, tag_value);
+            self.tags = Some(the_map);
         }
-        
     }
     pub fn error(&mut self) {
-        if let(Some(my_tags)) = self.tags.as_mut() {
-            my_tags.push("error".to_string());
+        if let (Some(my_tags)) = self.tags.as_mut() {
+            my_tags.insert("error".to_string(), true.to_string());
         }
     }
     pub fn is_error(&self) -> bool {
-        if let(Some(my_tags)) = &self.tags {
-            my_tags.contains(&"error".to_string())
-        }else {
+        if let (Some(my_tags)) = &self.tags {
+            if let (Some(error)) = my_tags.get("error") {
+                error.parse::<bool>().unwrap_or(false)
+            } else {
+                false
+            }
+        } else {
             false
         }
     }
@@ -464,25 +472,29 @@ pub struct Timer {
     #[serde(with = "serde_millis")]
     pub stop: Option<std::time::Instant>,
     /*
-    TODO... this needs to be a map 
+    TODO... this needs to be a map
     */
-    pub tags: Vec<String>,
+    pub tags: Option<HashMap<String, String>>,
 }
 impl Timer {
-    pub fn start(name: String, tags: Option<Vec<String>>) -> Timer {
+    pub fn start(name: String, tags: Option<HashMap<String, String>>) -> Timer {
         Timer {
-            name: format!("{}_timer_ms",name),
+            name: format!("{}_timer_ms", name),
             start: std::time::Instant::now(),
             stop: None,
-            tags: tags.unwrap_or(vec![]),
+            tags: tags,
         }
     }
-    pub fn new(name: String, start: std::time::Instant, tags: Option<Vec<String>>) -> Timer {
+    pub fn new(
+        name: String,
+        start: std::time::Instant,
+        tags: Option<HashMap<String, String>>,
+    ) -> Timer {
         Timer {
             name: name,
             start: start,
             stop: None,
-            tags: tags.unwrap_or(vec![]),
+            tags: tags,
         }
     }
     pub fn stop(&mut self) -> Timer {
@@ -499,40 +511,62 @@ impl Timer {
             None => self.start.elapsed(),
         }
     }
+    pub fn tag(&mut self, tag_name: String, tag_value: String) -> () {
+        if let (Some(my_tags)) = self.tags.as_mut() {
+            my_tags.insert(tag_name, tag_value);
+        }
+    }
     pub fn error(&mut self) {
-        self.tags.push("error".to_string());
+        if let (Some(my_tags)) = self.tags.as_mut() {
+            my_tags.insert("error".to_string(), true.to_string());
+        }
     }
-    pub fn is_error(&self) -> bool {
-        self.tags.contains(&"error".to_string())
-    }
+
     pub fn to_extn_request(&self) -> OperationalMetricRequest {
         OperationalMetricRequest::Timer(self.clone())
     }
-    
 }
 
-static FIREBOLT_RPC_NAME:&str  = "firebolt_rpc_call";
+static FIREBOLT_RPC_NAME: &str = "firebolt_rpc_call";
 impl From<Timer> for OperationalMetricRequest {
     fn from(timer: Timer) -> Self {
         OperationalMetricRequest::Timer(timer)
     }
 }
 
-pub fn fb_api_timer(method_name: String, tags:Option<Vec<String>>) -> Timer {
-   let timer_tags =  match tags {
+pub fn fb_api_timer(method_name: String, tags: Option<HashMap<String, String>>) -> Timer {
+    let timer_tags = match tags {
         Some(mut tags) => {
-            tags.push(FIREBOLT_RPC_NAME.to_string());
+            tags.insert("method_name".to_string(), method_name);
             tags
-            
-        },
+        }
         None => {
-            vec![method_name]
-        },
+            let mut the_map = HashMap::new();
+            the_map.insert("method_name".to_string(), method_name);
+            the_map
+        }
     };
 
     Timer::start(FIREBOLT_RPC_NAME.to_string(), Some(timer_tags))
 }
-
+pub fn fb_api_counter(method_name: String, tags: Option<HashMap<String, String>>) -> Counter {
+    let counter_tags = match tags {
+        Some(mut tags) => {
+            tags.insert("method_name".to_string(), method_name);
+            tags
+        }
+        None => {
+            let mut the_map = HashMap::new();
+            the_map.insert("method_name".to_string(), method_name);
+            the_map
+        }
+    };
+    Counter {
+        name: FIREBOLT_RPC_NAME.to_string(),
+        value: 1,
+        tags: Some(counter_tags),
+    }
+}
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum OperationalMetricPayload {
     Timer(Timer),
@@ -758,7 +792,7 @@ mod tests {
 
     #[test]
     pub fn test_counter() {
-        let mut counter = super::Counter::new("test".to_string(), 0, vec![]);
+        let mut counter = super::Counter::new("test".to_string(), 0, None);
         counter.increment();
         assert_eq!(counter.get(), 1);
         counter.decrement();
@@ -774,11 +808,14 @@ mod tests {
     }
     #[test]
     pub fn test_counter_with_tags() {
-        let mut counter = super::Counter::new("test".to_string(), 0, vec![]);
-        assert_eq!(counter.tags, vec![] as Vec<String>);
-        counter.tag("tag1".to_string());
-        counter.tag("tag2".to_string());
-        assert_eq!(counter.tags, vec!["tag1".to_string(), "tag2".to_string()]);
+        let mut counter = super::Counter::new("test".to_string(), 0, None);
+        assert_eq!(counter.tags, None);
+        counter.tag("tag1".to_string(), "tag1_value".to_string());
+        counter.tag("tag2".to_string(), "tag2_value".to_string());
+        let mut expected = HashMap::new();
+        expected.insert("tag1".to_string(), "tag1_value".to_string());
+        expected.insert("tag2".to_string(), "tag2_value".to_string());
+        assert_eq!(counter.tags, Some(expected));
     }
     #[test]
     pub fn test_timer() {
