@@ -126,6 +126,7 @@ pub enum RippleContract {
     // Runtime ability for a given distributor to turn off a certian feature
     RemoteFeatureControl,
     Observability,
+    TelemetryEventsListener,
     /*used for examples */
     Ping,
 }

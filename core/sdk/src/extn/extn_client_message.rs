@@ -274,7 +274,6 @@ pub enum ExtnRequest {
     DistributorToken(DistributorTokenRequest),
     Context(RippleContextUpdateRequest),
     AppCatalog(AppCatalogRequest),
-    Ping(DistributorPingRequest),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -306,8 +305,6 @@ pub enum ExtnResponse {
     SecureStorage(SecureStorageResponse),
     AppCatalog(Vec<AppMetadata>),
     InstalledApps(Vec<InstalledApp>),
-    Pong(DistributorPingResponse),
-}
 }
 
 impl ExtnPayloadProvider for ExtnResponse {
