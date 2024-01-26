@@ -113,7 +113,7 @@ pub enum RippleContract {
     /// Contract for Main to forward behavior and operational metrics to processors
     Metrics,
     /// Contract for Extensions to recieve Telemetry events from Main
-    TelemetryEventsListener,
+    OperationalMetricListener,
     Storage(StorageAdjective),
     /// Provided by the distributor could be a device extension or a cloud extension.
     /// Distributor gets the ability to configure and customize the generation of
@@ -121,6 +121,10 @@ pub enum RippleContract {
     Session(SessionAdjective),
 
     RippleContext,
+    AppCatalog,
+    Apps,
+    // Runtime ability for a given distributor to turn off a certian feature
+    RemoteFeatureControl,
     Observability,
     /*used for examples */
     Ping,
