@@ -202,9 +202,7 @@ impl ExtnRequestProcessor for MetricsProcessor {
             MetricsPayload::TelemetryPayload(t) => {
                 TelemetryBuilder::update_session_id_and_send_telemetry(&state, t).is_ok()
             }
-            MetricsPayload::OperationalMetric( _ ) => {
-                true
-            }
+            MetricsPayload::OperationalMetric(_) => true,
         }
     }
 }
@@ -260,7 +258,7 @@ impl ExtnRequestProcessor for OpMetricsProcessor {
             OperationalMetricRequest::UnSubscribe => state
                 .metrics
                 .operational_telemetry_listener(&requestor, true),
-            _ =>  (),
+            _ => (),
         }
         Self::ack(state.get_client().get_extn_client(), msg)
             .await
