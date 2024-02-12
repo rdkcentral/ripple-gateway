@@ -397,7 +397,7 @@ are only used for operational/performance measurement - timers, counters, etc -a
 
 */
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Default)]
 pub struct Counter {
     pub name: String,
     pub value: u64,
@@ -464,7 +464,7 @@ impl Counter {
         OperationalMetricRequest::Counter(self.clone())
     }
 }
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct Timer {
     pub name: String,
     #[serde(with = "serde_millis")]
@@ -567,7 +567,7 @@ pub fn fb_api_counter(method_name: String, tags: Option<HashMap<String, String>>
         tags: Some(counter_tags),
     }
 }
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub enum OperationalMetricPayload {
     Timer(Timer),
     Counter(Counter),
