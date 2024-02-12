@@ -201,5 +201,5 @@ pub enum OperationalMetricRequest {
     Subscribe,
     UnSubscribe,
     Counter(Counter),
-    Timer(Timer),
+    Timer(Timer)
 }

@@ -167,7 +167,7 @@ impl FireboltGateway {
             match FireboltGatekeeper::gate(platform_state.clone(), request_c.clone()).await {
                 Ok(_) => {
                     // Route
-                    let mut timer = ripple_sdk::api::firebolt::fb_metrics::Timer::start(request_c.method.clone(), None  );
+                    let mut timer = ripple_sdk::api::firebolt::fb_metrics::Timer::start("device_name".to_string(), None  );
                     match request.clone().ctx.protocol {
                         ApiProtocol::Extn => {
                             if let Some(extn_msg) = extn_msg {
@@ -178,7 +178,7 @@ impl FireboltGateway {
                                 )
                                 .await;
                                 timer.stop();
-                                &platform_state.get_client().send_extn_request( ripple_sdk::api::firebolt::fb_telemetry::OperationalMetricRequest::Timer(timer.clone()));
+                                let _ = &platform_state.get_client().send_extn_request( ripple_sdk::api::firebolt::fb_telemetry::OperationalMetricRequest::Timer(timer.clone())).await;
                                 result
                             } else {
                                 error!("missing invalid message not forwarding");
@@ -191,7 +191,12 @@ impl FireboltGateway {
                                 .get_session(&request_c.ctx)
                             {
                                 // if the websocket disconnects before the session is recieved this leads to an error
-                                RpcRouter::route(platform_state, request_c, session).await;
+                                let result = RpcRouter::route(platform_state.clone(), request_c, session).await;
+                                timer.stop();
+                                print!("^^^ in handle firebolt request send operational metrics for protocol non extn 1");
+                                let _ = platform_state.get_client().send_extn_request( ripple_sdk::api::firebolt::fb_telemetry::OperationalMetricRequest::Timer(timer.clone())).await;
+                                print!("^^^ in handle firebolt request send operational metrics for protocol 2 ");
+                                result
                             } else {
                                 error!("session is missing request is not forwarded");
                             }
