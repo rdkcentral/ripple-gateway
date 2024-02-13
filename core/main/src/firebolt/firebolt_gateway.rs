@@ -167,11 +167,14 @@ impl FireboltGateway {
             match FireboltGatekeeper::gate(platform_state.clone(), request_c.clone()).await {
                 Ok(_) => {
                     // Route
-                    let mut timer = ripple_sdk::api::firebolt::fb_metrics::Timer::start(request_c.method.clone(), None  );
+                    let mut timer = ripple_sdk::api::firebolt::fb_metrics::Timer::start(
+                        request_c.method.clone(),
+                        None,
+                    );
                     match request.clone().ctx.protocol {
                         ApiProtocol::Extn => {
                             if let Some(extn_msg) = extn_msg {
-                               let result =  RpcRouter::route_extn_protocol(
+                                let result = RpcRouter::route_extn_protocol(
                                     &platform_state,
                                     request.clone(),
                                     extn_msg,
