@@ -479,7 +479,7 @@ pub struct Timer {
 impl Timer {
     pub fn start(name: String, tags: Option<HashMap<String, String>>) -> Timer {
         Timer {
-            name: format!("{}_timer_ms", name),
+            name: format!("{}_timer", name),
             start: std::time::Instant::now(),
             stop: None,
             tags: tags,
