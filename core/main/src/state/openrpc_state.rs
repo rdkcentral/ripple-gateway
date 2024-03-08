@@ -20,7 +20,7 @@ use ripple_sdk::api::{
         fb_capabilities::FireboltPermission,
         fb_openrpc::{
             CapabilitySet, FireboltOpenRpc, FireboltOpenRpcMethod, FireboltVersionManifest,
-            OpenRPCParser,
+            OpenRPCParser, ProviderSet,
         },
     },
     manifest::exclusory::{Exclusory, ExclusoryImpl},
@@ -46,6 +46,9 @@ pub struct OpenRpcState {
     ripple_cap_map: Arc<RwLock<HashMap<String, CapabilitySet>>>,
     cap_policies: Arc<RwLock<HashMap<String, CapabilityPolicy>>>,
     extended_rpc: Arc<RwLock<Vec<FireboltOpenRpc>>>,
+    // <pca>
+    provider_map: Arc<RwLock<HashMap<String, ProviderSet>>>,
+    // </pca>
 }
 
 impl OpenRpcState {
@@ -75,6 +78,9 @@ impl OpenRpcState {
             cap_policies: Arc::new(RwLock::new(version_manifest.capabilities)),
             open_rpc: firebolt_open_rpc,
             extended_rpc: Arc::new(RwLock::new(Vec::new())),
+            // <pca>
+            provider_map: Arc::new(RwLock::new(HashMap::new())),
+            // </pca>
         }
     }
 

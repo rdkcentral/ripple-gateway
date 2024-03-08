@@ -146,6 +146,10 @@ impl ProviderBroker {
         method: String,
         provider: CallContext,
     ) {
+        debug!(
+            "*** _DEBUG: unregister_provider: capability={}, method={}",
+            capability, method
+        );
         let mut provider_methods = pst.provider_broker_state.provider_methods.write().unwrap();
         let cap_method = format!("{}:{}", capability, method);
         if let Some(method) = provider_methods.get(&cap_method) {
@@ -170,6 +174,10 @@ impl ProviderBroker {
     ) {
         debug!(
             "register_provider: capability={}, method={}, event_name={}",
+            capability, method, event_name
+        );
+        debug!(
+            "*** _DEBUG: register_provider: capability={}, method={}, event_name={}",
             capability, method, event_name
         );
         let cap_method = format!("{}:{}", capability, method);
@@ -205,6 +213,7 @@ impl ProviderBroker {
     }
 
     pub fn get_provider_methods(pst: &PlatformState) -> ProviderResult {
+        debug!("*** _DEBUG: get_provider_methods: entry");
         let provider_methods = pst.provider_broker_state.provider_methods.read().unwrap();
         let mut result: HashMap<String, Vec<String>> = HashMap::new();
         let caps_keys = provider_methods.keys();
@@ -225,6 +234,7 @@ impl ProviderBroker {
     }
 
     pub async fn invoke_method(pst: &PlatformState, request: ProviderBrokerRequest) {
+        debug!("*** _DEBUG: get_provider_methods: request={:?}", request);
         let cap_method = format!("{}:{}", request.capability, request.method);
         debug!("invoking provider for {}", cap_method);
 
@@ -274,6 +284,10 @@ impl ProviderBroker {
         request: ProviderBrokerRequest,
         provider: ProviderMethod,
     ) -> String {
+        debug!(
+            "*** _DEBUG: start_provider_session: request={:?}, provider={:?}",
+            request, provider
+        );
         let c_id = Uuid::new_v4().to_string();
         let mut active_sessions = pst.provider_broker_state.active_sessions.write().unwrap();
         debug!("started provider session {} {}", c_id, request.capability);
@@ -307,6 +321,10 @@ impl ProviderBroker {
     pub async fn provider_response(pst: &PlatformState, resp: ProviderResponse) {
         debug!(
             "provider_response, {}, {:?}",
+            resp.correlation_id, resp.result
+        );
+        debug!(
+            "*** _DEBUG: provider_response, {}, {:?}",
             resp.correlation_id, resp.result
         );
         let mut active_sessions = pst.provider_broker_state.active_sessions.write().unwrap();
@@ -400,6 +418,7 @@ impl ProviderBroker {
         _capability: String,
         request: FocusRequest,
     ) {
+        debug!("focus: _capability={}, request={:?}", _capability, request);
         let mut active_sessions = pst.provider_broker_state.active_sessions.write().unwrap();
         if let Some(session) = active_sessions.get_mut(&request.correlation_id) {
             session.focused = true;

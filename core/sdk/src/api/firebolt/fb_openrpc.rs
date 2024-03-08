@@ -212,6 +212,7 @@ impl FireboltOpenRpc {
     pub fn get_methods_caps(&self) -> HashMap<String, CapabilitySet> {
         let mut r = HashMap::default();
         for method in &self.methods {
+            println!("*** _DEBUG: get_methods_caps: method={:?}", method);
             let method_name = FireboltOpenRpcMethod::name_with_lowercase_module(&method.name);
             let method_tags = &method.tags;
             if let Some(tags) = method_tags {
@@ -231,6 +232,39 @@ impl FireboltOpenRpc {
         }
         r
     }
+
+    // <pca>
+    pub fn get_methods_provider_set(&self) -> HashMap<String, ProviderSet> {
+        let mut provider_set_map = HashMap::default();
+        let on_request_methods = self.methods.iter().filter(|method| {
+            if method.name.starts_with("onRequest") {
+                if let Some(tags) = method.tags {
+                    true
+                }
+            }
+        });
+        for method in &self.methods {
+            println!("*** _DEBUG: get_methods_provider_set: method={:?}", method);
+            let method_name = FireboltOpenRpcMethod::name_with_lowercase_module(&method.name);
+            let method_tags = &method.tags;
+            if let Some(tags) = method_tags {
+                for tag in tags {
+                    if tag.name == "capabilities" {
+                        r.insert(
+                            method_name.clone(),
+                            CapabilitySet {
+                                use_caps: tag.get_uses_caps(),
+                                provide_cap: tag.get_provides(),
+                                manage_caps: tag.get_manages_caps(),
+                            },
+                        );
+                    }
+                }
+            }
+        }
+        provider_set_map
+    }
+    // </pca>
 
     pub fn get_setter_method_for_getter(
         &self,
@@ -670,6 +704,17 @@ impl CapabilitySet {
         }
     }
 }
+
+// <pca>
+#[derive(Debug, Clone)]
+pub struct ProviderSet {
+    pub capability: FireboltCap,
+    pub request: String,
+    pub response: Option<String>,
+    pub error: Option<String>,
+    pub focus: Option<String>,
+}
+// </pca>
 
 #[cfg(test)]
 mod tests {
