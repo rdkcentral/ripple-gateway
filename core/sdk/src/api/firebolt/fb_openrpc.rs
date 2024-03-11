@@ -239,8 +239,22 @@ impl FireboltOpenRpc {
         let on_request_methods = self.methods.iter().filter(|method| {
             if method.name.starts_with("onRequest") {
                 if let Some(tags) = method.tags {
-                    true
+                    let mut has_event = false;
+                    let mut has_caps = false;
+                    for tag in tags {
+                        if tag.name.eq("event") {
+                            has_event = true;
+                        }
+                        if tag.name.eq("capabilities") {
+                            has_caps = true;
+                        }
+                    }
+                    has_event && has_caps
+                } else {
+                    false
                 }
+            } else {
+                false
             }
         });
         for method in &self.methods {
@@ -346,6 +360,16 @@ pub struct FireboltOpenRpcTag {
     pub allow_value: Option<bool>,
     #[serde(rename = "x-setter-for")]
     pub setter_for: Option<String>,
+    // <pca>
+    #[serde(rename = "x-allow_focus")]
+    pub allow_focus: Option<bool>,
+    #[serde(rename = "x-response-for")]
+    pub response_for: Option<String>,
+    #[serde(rename = "x-error-for")]
+    pub error_for: Option<String>,
+    #[serde(rename = "x-focus-for")]
+    pub focus_for: Option<String>,
+    // </pca>
 }
 
 impl FireboltOpenRpcTag {
