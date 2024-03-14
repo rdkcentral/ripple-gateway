@@ -18,8 +18,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    extn::extn_client_message::{ExtnPayload, ExtnPayloadProvider, ExtnRequest},
-    framework::ripple_contract::RippleContract,
+    api::session::AccountSession, extn::extn_client_message::{ExtnPayload, ExtnPayloadProvider, ExtnRequest}, framework::ripple_contract::RippleContract
 };
 
 use super::device_request::DeviceRequest;
@@ -30,6 +29,8 @@ pub enum AppsRequest {
     InstallApp(AppMetadata),
     UninstallApp(InstalledApp),
     GetFireboltPermissions(String),
+    RefreshSession(AccountSession),
+    CheckForUpdates,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
