@@ -891,8 +891,8 @@ impl ExtnRequestProcessor for ThunderPackageManagerRequestProcessor {
             AppsRequest::UninstallApp(app) => Self::uninstall_app(state.clone(), msg, app).await,
             AppsRequest::GetFireboltPermissions(app_id) => {
                 Self::get_firebolt_permissions(state.clone(), msg, app_id).await
-            },
-            _ => { true }
+            }
+            _ => true,
         }
     }
 }
