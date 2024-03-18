@@ -257,25 +257,28 @@ impl FireboltOpenRpc {
                 false
             }
         });
-        for method in &self.methods {
-            println!("*** _DEBUG: get_methods_provider_set: method={:?}", method);
-            let method_name = FireboltOpenRpcMethod::name_with_lowercase_module(&method.name);
-            let method_tags = &method.tags;
-            if let Some(tags) = method_tags {
+
+        for method in on_request_methods {
+            if let Some(tags) = method.tags {
+                let mut provider_set = ProviderSet::new(FireboltCap::Short(String::default()));
                 for tag in tags {
-                    if tag.name == "capabilities" {
-                        r.insert(
-                            method_name.clone(),
-                            CapabilitySet {
-                                use_caps: tag.get_uses_caps(),
-                                provide_cap: tag.get_provides(),
-                                manage_caps: tag.get_manages_caps(),
-                            },
-                        );
+                    if tag.name.eq("event") {
+                        provider_set.response = tag.response;
+                        provider_set.error = tag.error;
+                    } else if tag.name.eq("capabilities") {
+                        if let Some(provides) = tag.get_provides() {
+                            provider_set.provides = provides;
+                        }
+                        provider_set.allow_focus = tag.allow_focus;
+                        provider_set.response_for = tag.response_for;
+                        provider_set.error_for = tag.error_for;
+                        provider_set.focus_for = tag.focus_for;
                     }
                 }
+                provider_set_map.insert(method.name.clone(), provider_set);
             }
         }
+
         provider_set_map
     }
     // </pca>
@@ -361,10 +364,14 @@ pub struct FireboltOpenRpcTag {
     #[serde(rename = "x-setter-for")]
     pub setter_for: Option<String>,
     // <pca>
-    #[serde(rename = "x-allow_focus")]
-    pub allow_focus: Option<bool>,
     #[serde(rename = "x-response-for")]
     pub response_for: Option<String>,
+    #[serde(rename = "x-allow_focus")]
+    pub allow_focus: Option<bool>,
+    #[serde(rename = "x-response")]
+    pub response: Option<String>,
+    #[serde(rename = "x-error")]
+    pub error: Option<String>,
     #[serde(rename = "x-error-for")]
     pub error_for: Option<String>,
     #[serde(rename = "x-focus-for")]
@@ -732,11 +739,27 @@ impl CapabilitySet {
 // <pca>
 #[derive(Debug, Clone)]
 pub struct ProviderSet {
-    pub capability: FireboltCap,
-    pub request: String,
+    pub provides: FireboltCap,
     pub response: Option<String>,
+    pub response_for: Option<String>,
     pub error: Option<String>,
-    pub focus: Option<String>,
+    pub error_for: Option<String>,
+    pub allow_focus: Option<bool>,
+    pub focus_for: Option<String>,
+}
+
+impl ProviderSet {
+    pub fn new(capability: FireboltCap) -> ProviderSet {
+        ProviderSet {
+            provides: capability,
+            response: None,
+            response_for: None,
+            error: None,
+            error_for: None,
+            allow_focus: None,
+            focus_for: None,
+        }
+    }
 }
 // </pca>
 

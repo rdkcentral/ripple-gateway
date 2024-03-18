@@ -79,7 +79,7 @@ impl OpenRpcState {
             open_rpc: firebolt_open_rpc,
             extended_rpc: Arc::new(RwLock::new(Vec::new())),
             // <pca>
-            provider_map: Arc::new(RwLock::new(HashMap::new())),
+            provider_map: Arc::new(RwLock::new(firebolt_open_rpc.get_methods_provider_set())),
             // </pca>
         }
     }
