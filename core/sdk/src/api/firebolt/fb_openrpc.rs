@@ -19,6 +19,7 @@ use std::collections::{HashMap, HashSet};
 
 use log::{debug, warn};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use super::fb_capabilities::{
     CapRequestRpcRequest, CapabilityRole, DenyReason, DenyReasonWithCap, FireboltCap,
@@ -212,7 +213,6 @@ impl FireboltOpenRpc {
     pub fn get_methods_caps(&self) -> HashMap<String, CapabilitySet> {
         let mut r = HashMap::default();
         for method in &self.methods {
-            println!("*** _DEBUG: get_methods_caps: method={:?}", method);
             let method_name = FireboltOpenRpcMethod::name_with_lowercase_module(&method.name);
             let method_tags = &method.tags;
             if let Some(tags) = method_tags {
@@ -236,49 +236,58 @@ impl FireboltOpenRpc {
     // <pca>
     pub fn get_methods_provider_set(&self) -> HashMap<String, ProviderSet> {
         let mut provider_set_map = HashMap::default();
-        let on_request_methods = self.methods.iter().filter(|method| {
-            if method.name.starts_with("onRequest") {
-                if let Some(tags) = method.tags {
-                    let mut has_event = false;
-                    let mut has_caps = false;
-                    for tag in tags {
-                        if tag.name.eq("event") {
-                            has_event = true;
+        let on_request_methods: Vec<&FireboltOpenRpcMethod> = self
+            .methods
+            .iter()
+            .filter(|method| {
+                // <pca> debug - Just AcknowledgeChallenge.onRequestChallenge for now.
+                //if method.name.contains(".onRequest") {
+                if method
+                    .name
+                    .contains("AcknowledgeChallenge.onRequestChallenge")
+                {
+                    // </pca>
+                    if let Some(tags) = &method.tags {
+                        let mut has_event = false;
+                        let mut has_caps = false;
+                        for tag in tags {
+                            if tag.name.eq("event") {
+                                has_event = true;
+                            }
+                            if tag.name.eq("capabilities") {
+                                has_caps = true;
+                            }
                         }
-                        if tag.name.eq("capabilities") {
-                            has_caps = true;
-                        }
+                        has_event && has_caps
+                    } else {
+                        false
                     }
-                    has_event && has_caps
                 } else {
                     false
                 }
-            } else {
-                false
-            }
-        });
+            })
+            .collect();
 
         for method in on_request_methods {
-            if let Some(tags) = method.tags {
-                let mut provider_set = ProviderSet::new(FireboltCap::Short(String::default()));
+            if let Some(tags) = method.tags.clone() {
+                let mut provider_set = ProviderSet::new();
                 for tag in tags {
                     if tag.name.eq("event") {
-                        provider_set.response = tag.response;
-                        provider_set.error = tag.error;
+                        provider_set.response = tag.response.clone();
+                        provider_set.error = tag.error.clone();
                     } else if tag.name.eq("capabilities") {
-                        if let Some(provides) = tag.get_provides() {
-                            provider_set.provides = provides;
-                        }
-                        provider_set.allow_focus = tag.allow_focus;
-                        provider_set.response_for = tag.response_for;
-                        provider_set.error_for = tag.error_for;
-                        provider_set.focus_for = tag.focus_for;
+                        provider_set.provides = tag.get_provides().clone();
+                        provider_set.allow_focus = tag.allow_focus.clone();
+                        provider_set.response_for = tag.response_for.clone();
+                        provider_set.error_for = tag.error_for.clone();
+                        provider_set.focus_for = tag.focus_for.clone();
                     }
                 }
                 provider_set_map.insert(method.name.clone(), provider_set);
             }
         }
 
+        println!("*** _DEBUG: provider_set_map={:?}", provider_set_map);
         provider_set_map
     }
     // </pca>
@@ -364,16 +373,16 @@ pub struct FireboltOpenRpcTag {
     #[serde(rename = "x-setter-for")]
     pub setter_for: Option<String>,
     // <pca>
+    #[serde(rename = "x-response")]
+    pub response: Option<Value>,
     #[serde(rename = "x-response-for")]
     pub response_for: Option<String>,
-    #[serde(rename = "x-allow_focus")]
-    pub allow_focus: Option<bool>,
-    #[serde(rename = "x-response")]
-    pub response: Option<String>,
     #[serde(rename = "x-error")]
-    pub error: Option<String>,
+    pub error: Option<Value>,
     #[serde(rename = "x-error-for")]
     pub error_for: Option<String>,
+    #[serde(rename = "x-allow-focus")]
+    pub allow_focus: Option<bool>,
     #[serde(rename = "x-focus-for")]
     pub focus_for: Option<String>,
     // </pca>
@@ -739,19 +748,22 @@ impl CapabilitySet {
 // <pca>
 #[derive(Debug, Clone)]
 pub struct ProviderSet {
-    pub provides: FireboltCap,
-    pub response: Option<String>,
+    pub provides: Option<FireboltCap>,
+    // <pca> Will need for request validation
+    //pub request: Option<Value>,
+    // </pca>
+    pub response: Option<Value>,
     pub response_for: Option<String>,
-    pub error: Option<String>,
+    pub error: Option<Value>,
     pub error_for: Option<String>,
     pub allow_focus: Option<bool>,
     pub focus_for: Option<String>,
 }
 
 impl ProviderSet {
-    pub fn new(capability: FireboltCap) -> ProviderSet {
+    pub fn new() -> ProviderSet {
         ProviderSet {
-            provides: capability,
+            provides: None,
             response: None,
             response_for: None,
             error: None,

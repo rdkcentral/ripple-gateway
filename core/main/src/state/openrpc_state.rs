@@ -76,7 +76,10 @@ impl OpenRpcState {
             ripple_cap_map: Arc::new(RwLock::new(ripple_open_rpc.get_methods_caps())),
             exclusory,
             cap_policies: Arc::new(RwLock::new(version_manifest.capabilities)),
-            open_rpc: firebolt_open_rpc,
+            // <pca>
+            //open_rpc: firebolt_open_rpc,
+            open_rpc: firebolt_open_rpc.clone(),
+            // </pca>
             extended_rpc: Arc::new(RwLock::new(Vec::new())),
             // <pca>
             provider_map: Arc::new(RwLock::new(firebolt_open_rpc.get_methods_provider_set())),
@@ -226,4 +229,10 @@ impl OpenRpcState {
     pub fn get_open_rpc(&self) -> FireboltOpenRpc {
         self.open_rpc.clone()
     }
+
+    // <pca>
+    pub fn get_provider_map(&self) -> HashMap<String, ProviderSet> {
+        self.provider_map.read().unwrap().clone()
+    }
+    // </pca>
 }

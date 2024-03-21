@@ -26,7 +26,7 @@ use ripple_sdk::{
             },
             provider::{
                 FocusRequest, ProviderRequest, ProviderRequestPayload, ProviderResponse,
-                ProviderResponsePayload,
+                ProviderResponsePayload, ACK_CHALLENGE_CAPABILITY,
             },
         },
         gateway::rpc_gateway_api::{CallContext, CallerSession},
@@ -117,6 +117,14 @@ impl ProviderResult {
 }
 
 impl ProviderBroker {
+    // <pca>
+    pub fn get_method(capability: &str) -> Option<String> {
+        match capability {
+            ACK_CHALLENGE_CAPABILITY => Some("challenge".into()),
+            _ => None,
+        }
+    }
+    // </pca>
     pub async fn register_or_unregister_provider(
         pst: &PlatformState,
         capability: String,
@@ -140,7 +148,10 @@ impl ProviderBroker {
         }
     }
 
-    pub async fn unregister_provider(
+    // <pca>
+    //pub async fn unregister_provider(
+    async fn unregister_provider(
+        // </pca>
         pst: &PlatformState,
         capability: String,
         method: String,
@@ -164,7 +175,10 @@ impl ProviderBroker {
         // TODO Add permissions
     }
 
-    pub async fn register_provider(
+    // <pca>
+    //pub async fn register_provider(
+    async fn register_provider(
+        // </pca>
         pst: &PlatformState,
         capability: String,
         method: String,
