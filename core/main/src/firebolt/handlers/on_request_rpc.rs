@@ -42,7 +42,7 @@ pub struct OnRequest {
     pub platform_state: PlatformState,
 }
 
-macro_rules! on_request {
+macro_rules! on_request_impl {
     ($capability:ident, $event:ident, $response_type:ty, $response_payload:expr, $error_type:ty, $error_payload:expr) => {
         impl OnRequest {
             async fn on_request(
@@ -120,8 +120,7 @@ impl RippleRPCProvider<OnRequest> for OnRequestRPCProvider {
         let provider_map = state.open_rpc_state.get_provider_map();
         for method in provider_map.keys() {
             if let Some(provider_set) = provider_map.get(method) {
-                // <pca> YAH: Figure out how to expand this to verify </pca>
-                on_request!(
+                on_request_impl!(
                     ACK_CHALLENGE_CAPABILITY,
                     ACK_CHALLENGE_EVENT,
                     ChallengeResponse,
