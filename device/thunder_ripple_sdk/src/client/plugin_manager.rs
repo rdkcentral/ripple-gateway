@@ -109,12 +109,13 @@ pub enum PluginManagerCommand {
 pub enum PluginActivatedResult {
     Ready,
     Pending(oneshot::Receiver<()>),
+    Error,
 }
 
 impl PluginActivatedResult {
     pub async fn ready(self) {
         match self {
-            PluginActivatedResult::Ready => (),
+            PluginActivatedResult::Ready | PluginActivatedResult::Error => (),
             PluginActivatedResult::Pending(sub_rx) => {
                 sub_rx.await.ok();
             }
@@ -287,13 +288,13 @@ impl PluginManager {
             callsign: callsign.clone(),
             callback: sub_tx,
         });
-        if trigger_activation {
-            self.activate_plugin(callsign).await;
+        if trigger_activation && self.activate_plugin(callsign).await.message.is_null() {
+            return PluginActivatedResult::Error;
         }
         PluginActivatedResult::Pending(sub_rx)
     }
 
-    pub async fn activate_plugin(&self, callsign: String) {
+    async fn activate_plugin(&self, callsign: String) -> DeviceResponseMessage {
         let r = ThunderActivatePluginParams { callsign };
         self.thunder_client
             .clone()
@@ -303,7 +304,7 @@ impl PluginManager {
                     serde_json::to_string(&r).unwrap(),
                 )),
             })
-            .await;
+            .await
     }
 
     pub async fn current_plugin_state(&self, callsign: String) -> PluginState {
@@ -319,7 +320,7 @@ impl PluginManager {
         let status_res: Result<Vec<PluginStatus>, serde_json::Error> =
             serde_json::from_value(resp.message.clone());
         match status_res {
-            Ok(status_arr) => match status_arr.get(0) {
+            Ok(status_arr) => match status_arr.first() {
                 Some(status) => status.to_plugin_state(),
                 None => PluginState::Missing,
             },
