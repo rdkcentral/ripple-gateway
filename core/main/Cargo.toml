@@ -46,7 +46,7 @@ tokio-tungstenite = "0.17.1"
 querystring = "1.1.0"
 serde = { version = "1.0", features = ["derive"] }
 arrayvec = "0.7.2"
-regex = "=1.7.3"
+regex = "1.10.4"
 serde_json = "1.0"
 base64 = "0.13.0"
 sd-notify = { version = "0.4.1", optional = true }
