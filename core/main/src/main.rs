@@ -16,39 +16,75 @@
 //
 
 use crate::bootstrap::boot::boot;
+use crate::state::bootstrap_state::BootstrapState;
 use ripple_sdk::{
     log::{error, info},
     tokio,
+    utils::error::RippleError,
     utils::logger::init_and_configure_logger,
 };
-use state::bootstrap_state::BootstrapState;
 pub mod bootstrap;
 pub mod firebolt;
 pub mod processor;
 pub mod service;
 pub mod state;
 pub mod utils;
+use utils::runtime::*;
 include!(concat!(env!("OUT_DIR"), "/version.rs"));
+
+// pub async fn bootstrap() -> Result<BootstrapState, RippleError>  {
+//     BootstrapState::build()
+// }
+// pub fn boostrap_logger(name: Option<&str>, version: Option<&str>) -> Result<(), fern::InitError> {
+
+//   //  init_and_configure_logger(version.unwrap_or(SEMVER_LIGHTWEIGHT), name.unwrap_or("gateway").into())
+//     Ok(())
+// }
+
+// pub async fn run(bootstrap_state:BootstrapState) -> () {
+
+//     match boot(bootstrap_state).await {
+//         Ok(_) => {
+//             info!("Ripple Exited gracefully!");
+//             std::process::exit(exitcode::OK);
+//         }
+//         Err(e) => {
+//             error!("Ripple failed with Error: {:?}", e);
+//             std::process::exit(exitcode::SOFTWARE);
+//         }
+//     }
+
+//}
+pub fn identity() -> () {
+    info!("Ripple OSS version {}", SEMVER_LIGHTWEIGHT);
+}
 
 #[tokio::main(worker_threads = 2)]
 async fn main() {
-    // Init logger
-    if let Err(e) = init_and_configure_logger(SEMVER_LIGHTWEIGHT, "gateway".into()) {
-        println!("{:?} logger init error", e);
-        return;
-    }
-    info!("version {}", SEMVER_LIGHTWEIGHT);
-    let bootstate = BootstrapState::build().expect("Failure to init state for bootstrap");
-
-    // bootstrap
-    match boot(bootstate).await {
-        Ok(_) => {
-            info!("Ripple Exited gracefully!");
-            std::process::exit(exitcode::OK);
-        }
-        Err(e) => {
-            error!("Ripple failed with Error: {:?}", e);
-            std::process::exit(exitcode::SOFTWARE);
-        }
-    }
+    boostrap_logger("gatewway", SEMVER_LIGHTWEIGHT).expect("could not setup logging, exiting");
+    identity();
+    run(bootstrap().await.expect("Ripple OSS bootstrap failed"));
 }
+
+// #[tokio::main(worker_threads = 2)]
+// async fn main() {
+//     // Init logger
+//     if let Err(e) = init_and_configure_logger(SEMVER_LIGHTWEIGHT, "gateway".into()) {
+//         println!("{:?} logger init error", e);
+//         return;
+//     }
+//     info!("version {}", SEMVER_LIGHTWEIGHT);
+//     let bootstate = BootstrapState::build().expect("Failure to init state for bootstrap");
+
+//     // bootstrap
+//     match boot(bootstate).await {
+//         Ok(_) => {
+//             info!("Ripple Exited gracefully!");
+//             std::process::exit(exitcode::OK);
+//         }
+//         Err(e) => {
+//             error!("Ripple failed with Error: {:?}", e);
+//             std::process::exit(exitcode::SOFTWARE);
+//         }
+//     }
+// }
