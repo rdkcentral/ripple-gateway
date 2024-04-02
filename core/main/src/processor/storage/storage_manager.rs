@@ -23,7 +23,7 @@ use ripple_sdk::{
             SetStorageProperty, StorageData,
         },
         firebolt::fb_capabilities::CAPABILITY_NOT_AVAILABLE,
-        storage_property::StorageProperty,
+        storage_property::{key_t, namespace_t, StorageProperty},
     },
     extn::extn_client_message::ExtnResponse,
     log::debug,
@@ -77,13 +77,45 @@ pub struct StorageManager;
 impl StorageManager {
     pub async fn get_bool(state: &PlatformState, property: StorageProperty) -> RpcResult<bool> {
         let data = property.as_data();
-        match StorageManager::get_bool_from_namespace(state, data.namespace.to_string(), data.key)
-            .await
-        {
+        match StorageManager::get_bool_from_namespace(state, data.namespace, data.key).await {
             Ok(resp) => Ok(resp.as_value()),
             Err(_) => Err(StorageManager::get_firebolt_error(&property)),
         }
     }
+
+    /*
+    pub async fn set(
+        state: &PlatformState,
+        property: StorageProperty,
+        value: Value,
+        context: Option<Value>,
+    ) -> RpcResult<()> {
+        let data = property.as_data();
+        debug!("Storage property: {:?} as data: {:?}", property, data);
+        if StorageManager::set_in_namespace(
+            state,
+            data.namespace,
+            data.key,
+            value, //json!(value),
+            data.event_names,
+            context,
+        )
+        .await
+        .is_err()
+        {
+            return Err(StorageManager::get_firebolt_error(&property));
+        }
+        // Update privacy settings cache if the change is for a privacy settings storage property
+        if property.is_a_privacy_setting_property() {
+            let mut privacy_settings_cache = state.metrics.get_privacy_settings_cache();
+            property.set_privacy_setting_value(&mut privacy_settings_cache, value);
+            state
+                .metrics
+                .update_privacy_settings_cache(&privacy_settings_cache);
+        }
+        Ok(())
+    }
+    */
 
     pub async fn set_bool(
         state: &PlatformState,
@@ -95,8 +127,8 @@ impl StorageManager {
         debug!("Storage property: {:?} as data: {:?}", property, data);
         if StorageManager::set_in_namespace(
             state,
-            data.namespace.to_string(),
-            data.key.to_string(),
+            data.namespace,
+            data.key,
             json!(value),
             data.event_names,
             context,
@@ -119,9 +151,7 @@ impl StorageManager {
 
     pub async fn get_string(state: &PlatformState, property: StorageProperty) -> RpcResult<String> {
         let data = property.as_data();
-        match StorageManager::get_string_from_namespace(state, data.namespace.to_string(), data.key)
-            .await
-        {
+        match StorageManager::get_string_from_namespace(state, data.namespace, data.key).await {
             Ok(resp) => Ok(resp.as_value()),
             Err(_) => Err(StorageManager::get_firebolt_error(&property)),
         }
@@ -217,8 +247,8 @@ impl StorageManager {
         let data = property.as_data();
         if StorageManager::set_in_namespace(
             state,
-            data.namespace.to_string(),
-            data.key.to_string(),
+            data.namespace,
+            data.key,
             json!(value),
             data.event_names,
             context,
@@ -236,12 +266,8 @@ impl StorageManager {
         property: StorageProperty,
     ) -> RpcResult<u32> {
         let data = property.as_data();
-        match StorageManager::get_number_as_u32_from_namespace(
-            state,
-            data.namespace.to_string(),
-            data.key,
-        )
-        .await
+        match StorageManager::get_number_as_u32_from_namespace(state, data.namespace, data.key)
+            .await
         {
             Ok(resp) => Ok(resp.as_value()),
             Err(_) => Err(StorageManager::get_firebolt_error(&property)),
@@ -253,15 +279,11 @@ impl StorageManager {
         property: StorageProperty,
     ) -> RpcResult<f32> {
         let data = property.as_data();
-        StorageManager::get_number_as_f32_from_namespace(
-            state,
-            data.namespace.to_string(),
-            data.key,
-        )
-        .await
-        .map_or(Err(StorageManager::get_firebolt_error(&property)), |resp| {
-            Ok(resp.as_value())
-        })
+        StorageManager::get_number_as_f32_from_namespace(state, data.namespace, data.key)
+            .await
+            .map_or(Err(StorageManager::get_firebolt_error(&property)), |resp| {
+                Ok(resp.as_value())
+            })
     }
 
     pub async fn set_number_as_f32(
@@ -273,8 +295,8 @@ impl StorageManager {
         let data = property.as_data();
         if StorageManager::set_in_namespace(
             state,
-            data.namespace.to_string(),
-            data.key.to_string(),
+            data.namespace,
+            data.key,
             json!(value),
             data.event_names,
             context,
@@ -296,8 +318,8 @@ impl StorageManager {
         let data = property.as_data();
         if StorageManager::set_in_namespace(
             state,
-            data.namespace.to_string(),
-            data.key.to_string(),
+            data.namespace,
+            data.key,
             json!(value),
             data.event_names,
             context,
@@ -315,15 +337,15 @@ impl StorageManager {
      */
     pub async fn get_bool_from_namespace(
         state: &PlatformState,
-        namespace: String,
-        key: &'static str,
+        namespace: namespace_t,
+        key: key_t,
     ) -> Result<StorageManagerResponse<bool>, StorageManagerError> {
         debug!("get_bool: namespace={}, key={}", namespace, key);
-        let resp = StorageManager::get(state, &namespace, &key.to_string()).await;
+        let resp = StorageManager::get(state, namespace, key).await;
         match storage_to_bool_rpc_result(resp) {
             Ok(value) => Ok(StorageManagerResponse::Ok(value)),
             Err(_) => {
-                if let Ok(value) = DefaultStorageProperties::get_bool(state, &namespace, key) {
+                if let Ok(value) = DefaultStorageProperties::get_bool(state, namespace, key) {
                     return Ok(StorageManagerResponse::Default(value));
                 }
                 Err(StorageManagerError::NotFound)
@@ -336,8 +358,8 @@ impl StorageManager {
      */
     pub async fn set_in_namespace(
         state: &PlatformState,
-        namespace: String,
-        key: String,
+        namespace: namespace_t,
+        key: key_t,
         value: Value,
         event_names: Option<&'static [&'static str]>,
         context: Option<Value>,
@@ -355,8 +377,8 @@ impl StorageManager {
         }
 
         let ssp = SetStorageProperty {
-            namespace,
-            key,
+            namespace: namespace.to_string(),
+            key: key.to_string(),
             data: StorageData::new(value.clone()),
         };
 
@@ -373,20 +395,28 @@ impl StorageManager {
         }
     }
 
+    pub async fn get_string_from_namespace2(
+        state: &PlatformState,
+        namespace: &String,
+        key: &'static str,
+    ) -> Result<StorageManagerResponse<String>, StorageManagerError> {
+        Ok(StorageManagerResponse::Ok("".to_string()))        
+    }
+       
     /*
     Used internally or when a custom namespace is required
      */
     pub async fn get_string_from_namespace(
         state: &PlatformState,
-        namespace: String,
+        namespace: namespace_t,
         key: &'static str,
     ) -> Result<StorageManagerResponse<String>, StorageManagerError> {
         debug!("get_string: namespace={}, key={}", namespace, key);
-        let resp = StorageManager::get(state, &namespace, &key.to_string()).await;
+        let resp = StorageManager::get(state, namespace, key).await;
         match storage_to_string_rpc_result(resp) {
             Ok(value) => Ok(StorageManagerResponse::Ok(value)),
             Err(_) => {
-                if let Ok(value) = DefaultStorageProperties::get_string(state, &namespace, key) {
+                if let Ok(value) = DefaultStorageProperties::get_string(state, namespace, key) {
                     return Ok(StorageManagerResponse::Default(value));
                 }
                 Err(StorageManagerError::NotFound)
@@ -399,16 +429,16 @@ impl StorageManager {
      */
     pub async fn get_number_as_u32_from_namespace(
         state: &PlatformState,
-        namespace: String,
+        namespace: namespace_t,
         key: &'static str,
     ) -> Result<StorageManagerResponse<u32>, StorageManagerError> {
         debug!("get_string: namespace={}, key={}", namespace, key);
-        let resp = StorageManager::get(state, &namespace, &key.to_string()).await;
+        let resp = StorageManager::get(state, namespace, key).await;
         match storage_to_u32_rpc_result(resp) {
             Ok(value) => Ok(StorageManagerResponse::Ok(value)),
             Err(_) => {
                 if let Ok(value) =
-                    DefaultStorageProperties::get_number_as_u32(state, &namespace, key)
+                    DefaultStorageProperties::get_number_as_u32(state, namespace, key)
                 {
                     return Ok(StorageManagerResponse::Default(value));
                 }
@@ -422,18 +452,18 @@ impl StorageManager {
      */
     pub async fn get_number_as_f32_from_namespace(
         state: &PlatformState,
-        namespace: String,
+        namespace: namespace_t,
         key: &'static str,
     ) -> Result<StorageManagerResponse<f32>, StorageManagerError> {
         debug!(
             "get_number_as_f32_from_namespace: namespace={}, key={}",
             namespace, key
         );
-        let resp = StorageManager::get(state, &namespace, &key.to_string()).await;
+        let resp = StorageManager::get(state, namespace, key).await;
 
         storage_to_f32_rpc_result(resp).map_or_else(
             |_| {
-                DefaultStorageProperties::get_number_as_f32(state, &namespace, key)
+                DefaultStorageProperties::get_number_as_f32(state, namespace, key)
                     .map_or(Err(StorageManagerError::NotFound), |val| {
                         Ok(StorageManagerResponse::Ok(val))
                     })
@@ -446,11 +476,9 @@ impl StorageManager {
         let data = property.as_data();
 
         if let Ok(ExtnResponse::StorageData(_)) =
-            StorageManager::get(state, &data.namespace.to_string(), &data.key.to_string()).await
+            StorageManager::get(state, &data.namespace, &data.key).await
         {
-            if let Ok(_) =
-                StorageManager::delete(state, &data.namespace.to_string(), &data.key.to_string()).await
-            {
+            if let Ok(_) = StorageManager::delete(state, data.namespace, data.key).await {
                 StorageManager::notify(state, Value::Null, data.event_names, None).await;
             } else {
                 return Err(StorageManager::get_firebolt_error(&property));
@@ -462,13 +490,13 @@ impl StorageManager {
 
     async fn get(
         state: &PlatformState,
-        namespace: &String,
-        key: &String,
+        namespace: namespace_t,
+        key: key_t,
     ) -> Result<ExtnResponse, RippleError> {
         debug!("get: namespace={}, key={}", namespace, key);
         let data = GetStorageProperty {
-            namespace: namespace.clone(),
-            key: key.clone(),
+            namespace: namespace.to_string(),
+            key: key.to_string(),
         };
         let result = state
             .get_client()
@@ -489,13 +517,13 @@ impl StorageManager {
 
     async fn delete(
         state: &PlatformState,
-        namespace: &String,
-        key: &String,
+        namespace: namespace_t,
+        key: key_t,
     ) -> Result<ExtnResponse, RippleError> {
         debug!("delete: namespace={}, key={}", namespace, key);
         let data = DeleteStorageProperty {
-            namespace: namespace.clone(),
-            key: key.clone(),
+            namespace: namespace.to_string(),
+            key: key.to_string(),
         };
         let result = state
             .get_client()
@@ -531,8 +559,8 @@ impl StorageManager {
         let data = property.as_data();
         if StorageManager::set_in_namespace(
             state,
-            data.namespace.to_string(),
-            data.key.to_string(),
+            data.namespace,
+            data.key,
             json!(value),
             data.event_names,
             context,
@@ -551,7 +579,7 @@ impl StorageManager {
     ) -> RpcResult<Vec<String>> {
         let data = property.as_data();
         storage_to_vec_string_rpc_result(
-            StorageManager::get(state, &data.namespace.to_string(), &data.key.to_string()).await,
+            StorageManager::get(state, &data.namespace, &data.key).await,
         )
     }
 

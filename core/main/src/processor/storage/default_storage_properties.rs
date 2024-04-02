@@ -17,8 +17,8 @@
 
 use ripple_sdk::{
     api::storage_property::{
-        KEY_ALLOW_ACR_COLLECTION, KEY_ALLOW_APP_CONTENT_AD_TARGETING, KEY_ALLOW_BUSINESS_ANALYTICS,
-        KEY_ALLOW_CAMERA_ANALYTICS, KEY_ALLOW_PERSONALIZATION,
+        key_t, namespace_t, KEY_ALLOW_ACR_COLLECTION, KEY_ALLOW_APP_CONTENT_AD_TARGETING,
+        KEY_ALLOW_BUSINESS_ANALYTICS, KEY_ALLOW_CAMERA_ANALYTICS, KEY_ALLOW_PERSONALIZATION,
         KEY_ALLOW_PRIMARY_BROWSE_AD_TARGETING, KEY_ALLOW_PRIMARY_CONTENT_AD_TARGETING,
         KEY_ALLOW_PRODUCT_ANALYTICS, KEY_ALLOW_REMOTE_DIAGNOSTICS, KEY_ALLOW_RESUME_POINTS,
         KEY_ALLOW_UNENTITLED_PERSONALIZATION, KEY_ALLOW_UNENTITLED_RESUME_POINTS,
@@ -47,8 +47,8 @@ pub struct DefaultStorageProperties;
 impl DefaultStorageProperties {
     pub fn get_bool(
         state: &PlatformState,
-        namespace: &String,
-        key: &'static str,
+        namespace: namespace_t,
+        key: key_t,
     ) -> Result<bool, DefaultStoragePropertiesError> {
         debug!("get_bool: namespace={}, key={}", namespace, key);
         if namespace.eq(NAMESPACE_CLOSED_CAPTIONS) {
@@ -143,8 +143,8 @@ impl DefaultStorageProperties {
 
     pub fn get_string(
         state: &PlatformState,
-        namespace: &String,
-        key: &'static str,
+        namespace: namespace_t,
+        key: key_t,
     ) -> Result<String, DefaultStoragePropertiesError> {
         debug!("get_string: namespace={}, key={}", namespace, key);
         if namespace.eq(NAMESPACE_CLOSED_CAPTIONS) {
@@ -254,8 +254,8 @@ impl DefaultStorageProperties {
 
     pub fn get_number_as_u32(
         state: &PlatformState,
-        namespace: &String,
-        key: &'static str,
+        namespace: namespace_t,
+        key: key_t,
     ) -> Result<u32, DefaultStoragePropertiesError> {
         debug!("get_number_as_u32: namespace={}, key={}", namespace, key);
         if namespace.eq(NAMESPACE_CLOSED_CAPTIONS) {
@@ -291,8 +291,8 @@ impl DefaultStorageProperties {
 
     pub fn get_number_as_f32(
         state: &PlatformState,
-        namespace: &String,
-        key: &'static str,
+        namespace: namespace_t,
+        key: key_t,
     ) -> Result<f32, DefaultStoragePropertiesError> {
         debug!("get_number_as_f32: namespace={}, key={}", namespace, key);
         if namespace.eq(NAMESPACE_CLOSED_CAPTIONS) {

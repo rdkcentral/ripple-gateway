@@ -295,13 +295,7 @@ pub async fn get_allow_app_content_ad_targeting_settings(
             }
         }
     }
-    match StorageManager::get_bool_from_namespace(
-        platform_state,
-        data.namespace.to_string(),
-        data.key,
-    )
-    .await
-    {
+    match StorageManager::get_bool_from_namespace(platform_state, data.namespace, data.key).await {
         Ok(resp) => AllowAppContentAdTargetingSettings::new(resp.as_value())
             .get_allow_app_content_ad_targeting_settings(),
         Err(StorageManagerError::NotFound) => AllowAppContentAdTargetingSettings::default()

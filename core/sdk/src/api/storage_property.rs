@@ -429,10 +429,15 @@ const PROPERTY_CC_PREFERRED_LANGUAGES: PropertyData = PropertyData {
     ]),
 };
 
+#[allow(non_camel_case_types)]
+pub type namespace_t = &'static str;
+#[allow(non_camel_case_types)]
+pub type key_t = &'static str;
+
 #[derive(Debug)]
 pub struct PropertyData {
-    pub namespace: &'static str,
-    pub key: &'static str,
+    pub namespace: namespace_t,
+    pub key: key_t,
     pub event_names: Option<&'static [&'static str]>,
 }
 

@@ -52,7 +52,7 @@ use ripple_sdk::api::{
         EVENT_CLOSED_CAPTIONS_WINDOW_COLOR, EVENT_CLOSED_CAPTIONS_WINDOW_OPACITY,
     },
 };
-use serde_json::Value;
+use serde_json::{json, Value};
 
 #[derive(Clone)]
 struct CCEventDecorator {}
@@ -359,6 +359,7 @@ impl ClosedcaptionsImpl {
         value: SetPropertyOpt<String>,
     ) -> RpcResult<()> {
         match value.value {
+            //Some(val) => StorageManager::set(ps, property, json!(val), None).await,
             Some(val) => StorageManager::set_string(ps, property, val, None).await,
             None => StorageManager::delete_key(ps, property).await,
         }
