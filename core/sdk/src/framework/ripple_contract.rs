@@ -46,9 +46,6 @@ pub enum RippleContract {
     /// Provided by the distributor to discover content, apps, history and recommendations.
     /// Used by [crate::api::distributor::distributor_discovery::DiscoveryRequest]
     Discovery,
-    /// Provided by the platform to handle launching and managing applications.
-    /// Used by [crate::api::firebolt::fb_lifecycle_management::LifecycleManagementEventRequest]
-    Launcher,
     /// Provided by the platform to support Pin challenge request from extensions. Used by [crate::api::firebolt::fb_pin::PinChallengeRequest]
     PinChallenge,
     /// Provided by the distributor for any additional RPC extensions doesnt use a request object.

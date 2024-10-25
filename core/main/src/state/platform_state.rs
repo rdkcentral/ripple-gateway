@@ -138,10 +138,6 @@ impl PlatformState {
         }
     }
 
-    pub fn has_internal_launcher(&self) -> bool {
-        self.extn_manifest.get_launcher_capability().is_some()
-    }
-
     pub fn get_launcher_capability(&self) -> Option<ExtnId> {
         self.extn_manifest.get_launcher_capability()
     }

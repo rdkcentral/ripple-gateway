@@ -22,7 +22,7 @@ use crate::{
         apps::{AppSession, CloseReason},
         device::entertainment_data::{InternalNavigationIntent, NavigationIntent},
     },
-    extn::extn_client_message::{ExtnEvent, ExtnPayload, ExtnPayloadProvider, ExtnRequest},
+    extn::extn_client_message::{ExtnPayload, ExtnPayloadProvider, ExtnRequest},
     framework::ripple_contract::RippleContract,
 };
 
@@ -36,36 +36,6 @@ pub const LCM_EVENT_ON_SESSION_TRANSITION_COMPLETED: &str =
     "lifecyclemanagement.onSessionTransitionCompleted";
 pub const LCM_EVENT_ON_SESSION_TRANSITION_CANCELED: &str =
     "lifecyclemanagement.onSessionTransitionCanceled";
-
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
-pub enum LifecycleManagementEventRequest {
-    Launch(LifecycleManagementLaunchEvent),
-    Ready(LifecycleManagementReadyEvent),
-    Close(LifecycleManagementCloseEvent),
-    Finished(LifecycleManagementFinishedEvent),
-    Provide(LifecycleManagementProviderEvent),
-}
-
-impl ExtnPayloadProvider for LifecycleManagementEventRequest {
-    fn get_extn_payload(&self) -> ExtnPayload {
-        ExtnPayload::Event(ExtnEvent::Value(serde_json::to_value(self).unwrap()))
-    }
-
-    fn get_from_payload(payload: ExtnPayload) -> Option<Self> {
-        if let ExtnPayload::Event(ExtnEvent::Value(value)) = payload {
-            let result: Result<Self, serde_json::Error> = serde_json::from_value(value);
-            if let Ok(result) = result {
-                return Some(result);
-            }
-        }
-
-        None
-    }
-
-    fn contract() -> RippleContract {
-        RippleContract::Launcher
-    }
-}
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub enum LifecycleManagementRequest {
@@ -301,22 +271,22 @@ mod tests {
         test_extn_payload_provider(lifecycle_management_request, contract_type);
     }
 
-    #[test]
-    fn test_lifecycle_management_launch_event_serialization() {
-        let launch_event =
-            LifecycleManagementEventRequest::Launch(LifecycleManagementLaunchEvent {
-                parameters: LifecycleManagementLaunchParameters {
-                    app_id: "example_app".to_string(),
-                    intent: Some(InternalNavigationIntent::NavigationIntentStrict(
-                        InternalNavigationIntentStrict::Home(HomeIntent {
-                            context: DiscoveryContext {
-                                source: "test_source".to_string(),
-                            },
-                        }),
-                    )),
-                },
-            });
-        let contract_type: RippleContract = RippleContract::Launcher;
-        test_extn_payload_provider(launch_event, contract_type);
-    }
+    // #[test]
+    // fn test_lifecycle_management_launch_event_serialization() {
+    //     let launch_event =
+    //         LifecycleManagementEventRequest::Launch(LifecycleManagementLaunchEvent {
+    //             parameters: LifecycleManagementLaunchParameters {
+    //                 app_id: "example_app".to_string(),
+    //                 intent: Some(InternalNavigationIntent::NavigationIntentStrict(
+    //                     InternalNavigationIntentStrict::Home(HomeIntent {
+    //                         context: DiscoveryContext {
+    //                             source: "test_source".to_string(),
+    //                         },
+    //                     }),
+    //                 )),
+    //             },
+    //         });
+    //     let contract_type: RippleContract = RippleContract::Launcher;
+    //     test_extn_payload_provider(launch_event, contract_type);
+    // }
 }

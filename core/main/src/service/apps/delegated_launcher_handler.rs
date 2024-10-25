@@ -54,18 +54,7 @@ use ripple_sdk::{
     api::{
         apps::{AppRequest, AppResponse},
         device::device_user_grants_data::GrantLifespan,
-        firebolt::{
-            fb_discovery::LaunchRequest,
-            fb_lifecycle_management::{
-                LifecycleManagementCloseEvent, LifecycleManagementCloseParameters,
-                LifecycleManagementEventRequest, LifecycleManagementFinishedEvent,
-                LifecycleManagementFinishedParameters, LifecycleManagementLaunchEvent,
-                LifecycleManagementLaunchParameters, LifecycleManagementReadyEvent,
-                LifecycleManagementReadyParameters, LCM_EVENT_ON_REQUEST_CLOSE,
-                LCM_EVENT_ON_REQUEST_FINISHED, LCM_EVENT_ON_REQUEST_LAUNCH,
-                LCM_EVENT_ON_REQUEST_READY,
-            },
-        },
+        firebolt::fb_discovery::LaunchRequest,
     },
     log::info,
     tokio::{self, sync::mpsc::Receiver},
@@ -108,7 +97,7 @@ pub struct App {
 pub struct AppManagerState {
     apps: Arc<RwLock<HashMap<String, App>>>,
     // Very useful for internal launcher where the intent might get untagged
-    intents: Arc<RwLock<HashMap<String, NavigationIntent>>>,
+    _intents: Arc<RwLock<HashMap<String, NavigationIntent>>>,
     // This is a map <app_id, app_title>
     app_title: Arc<RwLock<HashMap<String, String>>>,
     app_title_persist_path: String,
@@ -131,7 +120,7 @@ impl AppManagerState {
 
         AppManagerState {
             apps: Arc::new(RwLock::new(HashMap::new())),
-            intents: Arc::new(RwLock::new(HashMap::new())),
+            _intents: Arc::new(RwLock::new(HashMap::new())),
             app_title: Arc::new(RwLock::new(persisted_app_titles)),
             app_title_persist_path,
             migrated_apps: Arc::new(RwLock::new(persisted_migrated_apps)),
@@ -326,15 +315,15 @@ impl AppManagerState {
             None
         }
     }
-    fn store_intent(&self, app_id: &str, intent: NavigationIntent) {
-        let mut intents = self.intents.write().unwrap();
-        let _ = intents.insert(app_id.to_owned(), intent);
-    }
+    // fn store_intent(&self, app_id: &str, intent: NavigationIntent) {
+    //     let mut intents = self.intents.write().unwrap();
+    //     let _ = intents.insert(app_id.to_owned(), intent);
+    // }
 
-    fn take_intent(&self, app_id: &str) -> Option<NavigationIntent> {
-        let mut intents = self.intents.write().unwrap();
-        intents.remove(app_id)
-    }
+    // fn take_intent(&self, app_id: &str) -> Option<NavigationIntent> {
+    //     let mut intents = self.intents.write().unwrap();
+    //     intents.remove(app_id)
+    // }
 }
 
 pub struct DelegatedLauncherHandler {
@@ -405,27 +394,20 @@ impl DelegatedLauncherHandler {
                 AppMethod::SetState(app_id, state) => {
                     (self.set_state(&app_id, state).await, Some(app_id))
                 }
-                AppMethod::Launch(launch_request) => {
-                    if self.platform_state.has_internal_launcher() {
-                        // When using internal launcher extension the NavigationIntent structure will get untagged we will use the original
-                        // intent in these cases to avoid loss of data
-                        self.platform_state.app_manager_state.store_intent(
-                            &launch_request.app_id,
-                            launch_request.get_intent().clone(),
-                        );
-                    }
-                    (
-                        self.send_lifecycle_mgmt_event(LifecycleManagementEventRequest::Launch(
-                            LifecycleManagementLaunchEvent {
-                                parameters: LifecycleManagementLaunchParameters {
-                                    app_id: launch_request.app_id.clone(),
-                                    intent: Some(launch_request.get_intent().into()),
-                                },
-                            },
-                        ))
-                        .await,
-                        Some(launch_request.app_id.clone()),
-                    )
+                AppMethod::Launch(_launch_request) => {
+                    todo!()
+                    // (
+                    //     self.send_lifecycle_mgmt_event(LifecycleManagementEventRequest::Launch(
+                    //         LifecycleManagementLaunchEvent {
+                    //             parameters: LifecycleManagementLaunchParameters {
+                    //                 app_id: launch_request.app_id.clone(),
+                    //                 intent: Some(launch_request.get_intent().into()),
+                    //             },
+                    //         },
+                    //     ))
+                    //     .await,
+                    //     Some(launch_request.app_id.clone()),
+                    // )
                 }
                 AppMethod::Ready(app_id) => {
                     let resp;
@@ -433,15 +415,16 @@ impl DelegatedLauncherHandler {
                         resp = Err(e)
                     } else {
                         self.send_app_init_events(app_id.as_str()).await;
-                        resp = self
-                            .send_lifecycle_mgmt_event(LifecycleManagementEventRequest::Ready(
-                                LifecycleManagementReadyEvent {
-                                    parameters: LifecycleManagementReadyParameters {
-                                        app_id: app_id.clone(),
-                                    },
-                                },
-                            ))
-                            .await;
+                        todo!()
+                        // resp = self
+                        //     .send_lifecycle_mgmt_event(LifecycleManagementEventRequest::Ready(
+                        //         LifecycleManagementReadyEvent {
+                        //             parameters: LifecycleManagementReadyParameters {
+                        //                 app_id: app_id.clone(),
+                        //             },
+                        //         },
+                        //     ))
+                        //     .await;
                     }
                     TelemetryBuilder::send_app_load_stop(
                         &self.platform_state,
@@ -450,18 +433,19 @@ impl DelegatedLauncherHandler {
                     );
                     (resp, Some(app_id))
                 }
-                AppMethod::Close(app_id, reason) => (
-                    self.send_lifecycle_mgmt_event(LifecycleManagementEventRequest::Close(
-                        LifecycleManagementCloseEvent {
-                            parameters: LifecycleManagementCloseParameters {
-                                app_id: app_id.clone(),
-                                reason,
-                            },
-                        },
-                    ))
-                    .await,
-                    Some(app_id),
-                ),
+                AppMethod::Close(_app_id, _reason) => 
+                    todo!()
+                    // self.send_lifecycle_mgmt_event(LifecycleManagementEventRequest::Close(
+                    //     LifecycleManagementCloseEvent {
+                    //         parameters: LifecycleManagementCloseParameters {
+                    //             app_id: app_id.clone(),
+                    //             reason,
+                    //         },
+                    //     },
+                    // ))
+                    // .await,
+                    // Some(app_id),
+                ,
                 AppMethod::CheckFinished(app_id) => {
                     (self.check_finished(&app_id).await, Some(app_id))
                 }
@@ -470,15 +454,15 @@ impl DelegatedLauncherHandler {
                     if let Err(e) = self.finished_check(&app_id) {
                         resp = Err(e)
                     } else {
-                        self.send_lifecycle_mgmt_event(LifecycleManagementEventRequest::Finished(
-                            LifecycleManagementFinishedEvent {
-                                parameters: LifecycleManagementFinishedParameters {
-                                    app_id: app_id.clone(),
-                                },
-                            },
-                        ))
-                        .await
-                        .ok();
+                        // self.send_lifecycle_mgmt_event(LifecycleManagementEventRequest::Finished(
+                        //     LifecycleManagementFinishedEvent {
+                        //         parameters: LifecycleManagementFinishedParameters {
+                        //             app_id: app_id.clone(),
+                        //         },
+                        //     },
+                        // ))
+                        // .await
+                        // .ok();
                         resp = self.end_session(&app_id).await;
                     }
                     (resp, Some(app_id))
@@ -600,7 +584,7 @@ impl DelegatedLauncherHandler {
 
     async fn start_session(
         &mut self,
-        mut session: AppSession,
+        session: AppSession,
     ) -> Result<AppManagerResponse, AppError> {
 
         let app_id = session.app.id.clone();
@@ -609,14 +593,6 @@ impl DelegatedLauncherHandler {
             self.platform_state
                 .app_manager_state
                 .persist_app_title(app_id.as_str(), app_title);
-        }
-        if self.platform_state.has_internal_launcher() {
-            // Specifically for internal launcher untagged navigation intent will probably not match the original cold launch usecase
-            // if there is a stored intent for this case take it and replace it with session
-            if let Some(intent) = self.platform_state.app_manager_state.take_intent(&app_id) {
-                debug!("Updating intent from initial call {:?}", intent);
-                session.update_intent(intent);
-            }
         }
 
         TelemetryBuilder::send_app_load_start(&self.platform_state, app_id.clone(), None, None);
@@ -1167,43 +1143,13 @@ impl DelegatedLauncherHandler {
         }
     }
 
-    async fn send_lifecycle_mgmt_event(
-        &mut self,
-        event: LifecycleManagementEventRequest,
-    ) -> Result<AppManagerResponse, AppError> {
-        if self.platform_state.has_internal_launcher() {
-            if let Err(e) = self.platform_state.get_client().send_event(event) {
-                error!("send event error {:?}", e);
-                return Err(AppError::OsError);
-            }
-        } else {
-            let event_name;
-            let value;
-            match event {
-                LifecycleManagementEventRequest::Launch(req) => {
-                    event_name = LCM_EVENT_ON_REQUEST_LAUNCH;
-                    value = serde_json::to_value(req).unwrap();
-                }
-                LifecycleManagementEventRequest::Ready(req) => {
-                    event_name = LCM_EVENT_ON_REQUEST_READY;
-                    value = serde_json::to_value(req).unwrap();
-                }
-                LifecycleManagementEventRequest::Close(req) => {
-                    event_name = LCM_EVENT_ON_REQUEST_CLOSE;
-                    value = serde_json::to_value(req).unwrap();
-                }
-                LifecycleManagementEventRequest::Finished(req) => {
-                    event_name = LCM_EVENT_ON_REQUEST_FINISHED;
-                    value = serde_json::to_value(req).unwrap();
-                }
-                _ => return Err(AppError::OsError),
-            }
-
-            AppEvents::emit(&self.platform_state, event_name, &value).await;
-        }
-
-        Ok(AppManagerResponse::None)
-    }
+    // async fn send_lifecycle_mgmt_event(
+    //     &mut self,
+    //     event: LifecycleManagementEventRequest,
+    // ) -> Result<AppManagerResponse, AppError> {
+    //     todo!()
+    //     //Ok(AppManagerResponse::None)
+    // }
 
     async fn get_start_page(&mut self, app_id: String) -> Result<AppManagerResponse, AppError> {
         match self.platform_state.app_manager_state.get(&app_id) {
