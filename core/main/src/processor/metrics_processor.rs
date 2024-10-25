@@ -40,7 +40,7 @@ use ripple_sdk::{
 };
 
 use crate::{
-    service::{data_governance::DataGovernance, telemetry_builder::TelemetryBuilder},
+    service::telemetry_builder::TelemetryBuilder,
     state::platform_state::PlatformState,
     SEMVER_LIGHTWEIGHT,
 };

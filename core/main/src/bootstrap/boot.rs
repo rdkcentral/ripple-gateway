@@ -26,12 +26,7 @@ use ripple_sdk::{
 use crate::state::bootstrap_state::BootstrapState;
 
 use super::{
-    extn::{
-        check_launcher_step::CheckLauncherStep, load_extn_metadata_step::LoadExtensionMetadataStep,
-        load_extn_step::LoadExtensionsStep, load_session_step::LoadDistributorValuesStep,
-        start_extn_channel_step::StartExtnChannelsStep,
-    },
-    setup_extn_client_step::SetupExtnClientStep,
+    extn::load_session_step::LoadDistributorValuesStep,
     start_app_manager_step::StartAppManagerStep,
     start_communication_broker::{StartCommunicationBroker, StartOtherBrokers},
     start_fbgateway_step::FireboltGatewayStep,
@@ -63,14 +58,9 @@ use super::{
 pub async fn boot(state: BootstrapState) -> RippleResponse {
     let bootstrap = Bootstrap::new(state);
     execute_step(StartCommunicationBroker, &bootstrap).await?;
-    execute_step(SetupExtnClientStep, &bootstrap).await?;
-    execute_step(LoadExtensionMetadataStep, &bootstrap).await?;
-    execute_step(LoadExtensionsStep, &bootstrap).await?;
-    execute_step(StartExtnChannelsStep, &bootstrap).await?;
     execute_step(StartAppManagerStep, &bootstrap).await?;
     execute_step(StartOtherBrokers, &bootstrap).await?;
     execute_step(LoadDistributorValuesStep, &bootstrap).await?;
-    execute_step(CheckLauncherStep, &bootstrap).await?;
     execute_step(StartWsStep, &bootstrap).await?;
     execute_step(FireboltGatewayStep, &bootstrap).await?;
     Ok(())

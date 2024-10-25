@@ -53,10 +53,6 @@ impl AppSession {
     pub fn get_transport(&self) -> EffectiveTransport {
         match &self.runtime {
             Some(rt) => match rt.transport {
-                AppRuntimeTransport::Bridge => match &rt.id {
-                    Some(id) => EffectiveTransport::Bridge(id.clone()),
-                    None => EffectiveTransport::Websocket,
-                },
                 AppRuntimeTransport::Websocket => EffectiveTransport::Websocket,
             },
             None => EffectiveTransport::Websocket,
@@ -79,7 +75,6 @@ pub struct AppBasicInfo {
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum AppRuntimeTransport {
-    Bridge,
     Websocket,
 }
 
@@ -111,14 +106,12 @@ pub struct AppLaunchInfo {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 pub enum EffectiveTransport {
-    Bridge(String),
     Websocket,
 }
 
 impl std::fmt::Display for EffectiveTransport {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            EffectiveTransport::Bridge(id) => write!(f, "bridge_{}", id),
             EffectiveTransport::Websocket => write!(f, "websocket"),
         }
     }
@@ -334,14 +327,14 @@ mod tests {
             },
             runtime: Some(AppRuntime {
                 id: Some("runtime_id".to_string()),
-                transport: AppRuntimeTransport::Bridge,
+                transport: AppRuntimeTransport::Websocket,
             }),
             launch: AppLaunchInfo::default(),
         };
 
         assert_eq!(
             app.get_transport(),
-            EffectiveTransport::Bridge("runtime_id".to_string())
+            EffectiveTransport::Websocket
         );
     }
 
@@ -356,7 +349,7 @@ mod tests {
             },
             runtime: Some(AppRuntime {
                 id: None,
-                transport: AppRuntimeTransport::Bridge,
+                transport: AppRuntimeTransport::Websocket,
             }),
             launch: AppLaunchInfo::default(),
         };

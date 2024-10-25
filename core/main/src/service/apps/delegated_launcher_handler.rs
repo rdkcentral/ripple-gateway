@@ -24,7 +24,7 @@ use std::{
 use ripple_sdk::{
     api::{
         apps::{
-            AppError, AppManagerResponse, AppMethod, AppSession, EffectiveTransport, StateChange,
+            AppError, AppManagerResponse, AppMethod, AppSession, StateChange,
         },
         device::{device_user_grants_data::EvaluateAt, entertainment_data::NavigationIntent},
         firebolt::{
@@ -37,14 +37,14 @@ use ripple_sdk::{
                 LCM_EVENT_ON_SESSION_TRANSITION_COMPLETED,
             },
             fb_metrics::{
-                AppLifecycleState, AppLifecycleStateChange, BehavioralMetricContext,
-                BehavioralMetricPayload,
+                AppLifecycleState, BehavioralMetricContext,
+                
             },
             fb_secondscreen::SECOND_SCREEN_EVENT_ON_LAUNCH_REQUEST,
         },
         gateway::rpc_gateway_api::{AppIdentification, CallerSession},
     },
-    log::{debug, error, trace, warn},
+    log::{debug, error, warn},
     serde_json::{self},
     tokio::sync::oneshot,
     utils::{error::RippleError, time_utils::Timer},
@@ -66,7 +66,6 @@ use ripple_sdk::{
                 LCM_EVENT_ON_REQUEST_READY,
             },
         },
-        protocol::{BridgeProtocolRequest, BridgeSessionParams},
     },
     log::info,
     tokio::{self, sync::mpsc::Receiver},
@@ -74,20 +73,14 @@ use ripple_sdk::{
 use serde_json::{json, Value};
 
 use crate::{
-    processor::metrics_processor::send_metric_for_app_state_change,
     service::{
-        apps::{
-            app_events::AppEvents, pending_session_event_processor::PendingSessionEventProcessor,
-        },
-        extn::ripple_client::RippleClient,
-        telemetry_builder::TelemetryBuilder,
-        user_grants::{GrantHandler, GrantPolicyEnforcer, GrantState},
+        apps::app_events::AppEvents, extn::ripple_client::RippleClient, telemetry_builder::TelemetryBuilder, user_grants::{GrantHandler, GrantPolicyEnforcer, GrantState}
     },
     state::{
         bootstrap_state::ChannelsState,
         cap::permitted_state::PermissionHandler,
         platform_state::PlatformState,
-        session_state::{PendingSessionInfo, Session},
+        session_state::PendingSessionInfo,
     },
     utils::rpc_utils::rpc_await_oneshot,
     SEMVER_LIGHTWEIGHT,
@@ -398,12 +391,7 @@ impl DelegatedLauncherHandler {
     }
 
     pub async fn start(&mut self) {
-        self.platform_state
-            .get_client()
-            .get_extn_client()
-            .add_event_processor(PendingSessionEventProcessor::new(
-                self.platform_state.clone(),
-            ));
+        
 
         while let Some(data) = self.app_mgr_req_rx.recv().await {
             // App request
@@ -549,7 +537,7 @@ impl DelegatedLauncherHandler {
             .app_manager_state
             .get_internal_state(app_id);
 
-        let context = BehavioralMetricContext {
+        let _context = BehavioralMetricContext {
             app_id: app_id.to_string(),
             app_version: SEMVER_LIGHTWEIGHT.to_string(),
             partner_id: String::from("partner.id.not.set"),
@@ -577,25 +565,25 @@ impl DelegatedLauncherHandler {
             NOOP, the launcher implementation does not care about this state w/respect to metrics */
             return;
         };
-        let from_state = match previous_state {
+        let _from_state = match previous_state {
             Some(state) => map_event(&state, inactive),
             None => None,
         };
 
-        let app_state_change_message =
-            BehavioralMetricPayload::AppStateChange(AppLifecycleStateChange {
-                context,
-                previous_state: from_state,
-                new_state: to_state.unwrap(),
-            });
+        // let app_state_change_message =
+        //     BehavioralMetricPayload::AppStateChange(AppLifecycleStateChange {
+        //         context,
+        //         previous_state: from_state,
+        //         new_state: to_state.unwrap(),
+        //     });
 
-        trace!("metrics.media_load_start={:?}", app_state_change_message);
-        let _ = send_metric_for_app_state_change(
-            &self.platform_state,
-            app_state_change_message,
-            app_id,
-        )
-        .await;
+        // trace!("metrics.media_load_start={:?}", app_state_change_message);
+        // let _ = send_metric_for_app_state_change(
+        //     &self.platform_state,
+        //     app_state_change_message,
+        //     app_id,
+        // )
+        // .await;
 
         self.platform_state
             .app_manager_state
@@ -614,13 +602,6 @@ impl DelegatedLauncherHandler {
         &mut self,
         mut session: AppSession,
     ) -> Result<AppManagerResponse, AppError> {
-        let transport = session.get_transport();
-        if let EffectiveTransport::Bridge(_) = transport.clone() {
-            if !self.platform_state.supports_bridge() {
-                error!("Bridge is not a supported contract");
-                return Err(AppError::NotSupported);
-            }
-        }
 
         let app_id = session.app.id.clone();
 
@@ -873,39 +854,7 @@ impl DelegatedLauncherHandler {
         emit_event: bool,
     ) -> CompletedSessionResponse {
         let app_id = session.app.id.clone();
-        let transport = session.get_transport();
         let session_id = Uuid::new_v4().to_string();
-        if let EffectiveTransport::Bridge(container_id) = transport.clone() {
-            if platform_state.supports_bridge() {
-                // Step 1: Add the session of the app to the state if bridge
-                let session_state = Session::new(app_id.clone(), None, transport);
-                platform_state
-                    .session_state
-                    .add_session(session_id.clone(), session_state);
-                let id = container_id.clone();
-                debug!(
-                    "App session details: appId: {} session: {}",
-                    app_id, session_id
-                );
-                // Step 2: Start the session using contract
-                let request = BridgeSessionParams {
-                    container_id,
-                    session_id: session_id.clone(),
-                    app_id: app_id.clone(),
-                };
-                let request = BridgeProtocolRequest::StartSession(request);
-                let client = platform_state.get_client();
-                // After processing the session response the launcher will launch the app
-                // Below thread is going to wait for the app to be launched and create a connection
-                tokio::spawn(async move {
-                    if let Err(e) = client.send_extn_request(request).await {
-                        error!("Error sending request to bridge {:?}", e);
-                    } else {
-                        info!("Bridge connected for {}", id);
-                    }
-                });
-            }
-        }
 
         let loaded_session_id = Uuid::new_v4().to_string();
         let mut active_session_id = None;
@@ -1053,22 +1002,9 @@ impl DelegatedLauncherHandler {
     async fn end_session(&mut self, app_id: &str) -> Result<AppManagerResponse, AppError> {
         debug!("end_session: entry: app_id={}", app_id);
         let app = self.platform_state.app_manager_state.remove(app_id);
-        if let Some(app) = app {
+        if app.is_some() {
             if let Some(timer) = self.timer_map.remove(app_id) {
                 timer.cancel();
-            }
-            let transport = app.initial_session.get_transport();
-            if let EffectiveTransport::Bridge(container_id) = transport {
-                AppEvents::remove_session(&self.platform_state, app.session_id.clone());
-                let request = BridgeProtocolRequest::EndSession(container_id);
-                if let Err(e) = self
-                    .platform_state
-                    .get_client()
-                    .send_extn_request(request)
-                    .await
-                {
-                    error!("Error sending event to bridge {:?}", e);
-                }
             }
         } else {
             error!("end_session app_id={} Not found", app_id);

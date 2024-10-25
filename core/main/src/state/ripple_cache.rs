@@ -43,7 +43,7 @@ impl RippleCache {
 
     pub fn update_cached_bool_storage_property(
         &self,
-        platform_state: &PlatformState,
+        _platform_state: &PlatformState,
         property: &StorageProperty,
         value: bool,
     ) {
@@ -51,9 +51,6 @@ impl RippleCache {
             // update the privacy setting property in cache
             let mut cache = self.privacy_settings_cache.write().unwrap();
             property.set_privacy_setting_value(&mut cache, value);
-            platform_state
-                .metrics
-                .update_data_governance_tags(platform_state, &cache);
         }
     }
 }

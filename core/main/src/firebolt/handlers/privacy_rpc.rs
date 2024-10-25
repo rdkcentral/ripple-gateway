@@ -27,14 +27,12 @@ use jsonrpsee::{
     types::error::CallError,
     RpcModule,
 };
+use ripple_sdk::api::distributor::distributor_privacy::PrivacySettings;
 use ripple_sdk::api::gateway::rpc_gateway_api::RpcStats;
 use ripple_sdk::{
     api::{
         device::device_peristence::SetBoolProperty,
-        distributor::distributor_privacy::{
-            ContentListenRequest, GetPropertyParams, PrivacyCloudRequest, PrivacySettings,
-            PrivacySettingsStoreRequest, SetPropertyParams,
-        },
+        distributor::distributor_privacy::ContentListenRequest,
         firebolt::{
             fb_capabilities::{CapabilityRole, FireboltCap, RoleInfo, CAPABILITY_NOT_AVAILABLE},
             fb_general::{ListenRequest, ListenerResponse},
@@ -50,7 +48,6 @@ use ripple_sdk::{
             EVENT_ALLOW_UNENTITLED_RESUME_POINTS_CHANGED, EVENT_ALLOW_WATCH_HISTORY_CHANGED,
         },
     },
-    extn::extn_client_message::ExtnPayload,
     extn::extn_client_message::ExtnResponse,
     log::debug,
     serde_json::{from_value, json},
@@ -539,129 +536,131 @@ impl PrivacyImpl {
     }
 
     pub async fn get_bool(
-        platform_state: &PlatformState,
-        property: StorageProperty,
+        _platform_state: &PlatformState,
+        _property: StorageProperty,
     ) -> RpcResult<bool> {
-        use ripple_sdk::api::manifest::device_manifest::PrivacySettingsStorageType;
-        let privacy_settings_storage_type: PrivacySettingsStorageType = platform_state
-            .get_device_manifest()
-            .configuration
-            .features
-            .privacy_settings_storage_type;
+        todo!()
+        // use ripple_sdk::api::manifest::device_manifest::PrivacySettingsStorageType;
+        // let privacy_settings_storage_type: PrivacySettingsStorageType = platform_state
+        //     .get_device_manifest()
+        //     .configuration
+        //     .features
+        //     .privacy_settings_storage_type;
 
-        match privacy_settings_storage_type {
-            PrivacySettingsStorageType::Local | PrivacySettingsStorageType::Sync => {
-                let payload = PrivacySettingsStoreRequest::GetPrivacySettings(property);
-                let response = platform_state.get_client().send_extn_request(payload).await;
-                if let Ok(extn_msg) = response {
-                    match extn_msg.payload {
-                        ExtnPayload::Response(res) => match res {
-                            ExtnResponse::Boolean(val) => RpcResult::Ok(val),
-                            _ => RpcResult::Err(jsonrpsee::core::Error::Custom(
-                                "Unable to fetch".to_owned(),
-                            )),
-                        },
-                        _ => RpcResult::Err(jsonrpsee::core::Error::Custom(
-                            "Unexpected response received from Extn".to_owned(),
-                        )),
-                    }
-                } else {
-                    RpcResult::Err(jsonrpsee::core::Error::Custom(
-                        "Error in getting response from Extn".to_owned(),
-                    ))
-                }
-            }
-            PrivacySettingsStorageType::Cloud => {
-                if let Some(dist_session) = platform_state.session_state.get_account_session() {
-                    let setting = match property.as_privacy_setting() {
-                        Some(s) => s,
-                        None => {
-                            return Err(jsonrpsee::core::Error::Custom(
-                                "Property is not a privacy setting".to_owned(),
-                            ))
-                        }
-                    };
-                    let request = PrivacyCloudRequest::GetProperty(GetPropertyParams {
-                        setting,
-                        dist_session,
-                    });
-                    if let Ok(resp) = platform_state.get_client().send_extn_request(request).await {
-                        if let Some(ExtnResponse::Boolean(b)) = resp.payload.extract() {
-                            return Ok(b);
-                        }
-                    }
-                    Err(jsonrpsee::core::Error::Custom(String::from(
-                        "PrivacySettingsStorageType::Cloud: Not Available",
-                    )))
-                } else {
-                    Err(jsonrpsee::core::Error::Custom(String::from(
-                        "Account session is not available",
-                    )))
-                }
-            }
-        }
+        // match privacy_settings_storage_type {
+        //     PrivacySettingsStorageType::Local | PrivacySettingsStorageType::Sync => {
+        //         let payload = PrivacySettingsStoreRequest::GetPrivacySettings(property);
+        //         let response = platform_state.get_client().send_extn_request(payload).await;
+        //         if let Ok(extn_msg) = response {
+        //             match extn_msg.payload {
+        //                 ExtnPayload::Response(res) => match res {
+        //                     ExtnResponse::Boolean(val) => RpcResult::Ok(val),
+        //                     _ => RpcResult::Err(jsonrpsee::core::Error::Custom(
+        //                         "Unable to fetch".to_owned(),
+        //                     )),
+        //                 },
+        //                 _ => RpcResult::Err(jsonrpsee::core::Error::Custom(
+        //                     "Unexpected response received from Extn".to_owned(),
+        //                 )),
+        //             }
+        //         } else {
+        //             RpcResult::Err(jsonrpsee::core::Error::Custom(
+        //                 "Error in getting response from Extn".to_owned(),
+        //             ))
+        //         }
+        //     }
+        //     PrivacySettingsStorageType::Cloud => {
+        //         if let Some(dist_session) = platform_state.session_state.get_account_session() {
+        //             let setting = match property.as_privacy_setting() {
+        //                 Some(s) => s,
+        //                 None => {
+        //                     return Err(jsonrpsee::core::Error::Custom(
+        //                         "Property is not a privacy setting".to_owned(),
+        //                     ))
+        //                 }
+        //             };
+        //             let request = PrivacyCloudRequest::GetProperty(GetPropertyParams {
+        //                 setting,
+        //                 dist_session,
+        //             });
+        //             if let Ok(resp) = platform_state.get_client().send_extn_request(request).await {
+        //                 if let Some(ExtnResponse::Boolean(b)) = resp.payload.extract() {
+        //                     return Ok(b);
+        //                 }
+        //             }
+        //             Err(jsonrpsee::core::Error::Custom(String::from(
+        //                 "PrivacySettingsStorageType::Cloud: Not Available",
+        //             )))
+        //         } else {
+        //             Err(jsonrpsee::core::Error::Custom(String::from(
+        //                 "Account session is not available",
+        //             )))
+        //         }
+        //     }
+        // }
     }
 
     pub async fn set_bool(
-        platform_state: &PlatformState,
-        property: StorageProperty,
-        value: bool,
+        _platform_state: &PlatformState,
+        _property: StorageProperty,
+        _value: bool,
     ) -> RpcResult<()> {
-        use ripple_sdk::api::manifest::device_manifest::PrivacySettingsStorageType;
-        let privacy_settings_storage_type: PrivacySettingsStorageType = platform_state
-            .get_device_manifest()
-            .configuration
-            .features
-            .privacy_settings_storage_type;
+        todo!()
+        // use ripple_sdk::api::manifest::device_manifest::PrivacySettingsStorageType;
+        // let privacy_settings_storage_type: PrivacySettingsStorageType = platform_state
+        //     .get_device_manifest()
+        //     .configuration
+        //     .features
+        //     .privacy_settings_storage_type;
 
-        match privacy_settings_storage_type {
-            PrivacySettingsStorageType::Local => {
-                let payload = PrivacySettingsStoreRequest::SetPrivacySettings(property, value);
-                let response = platform_state.get_client().send_extn_request(payload).await;
-                if let Ok(extn_msg) = response {
-                    match extn_msg.payload {
-                        ExtnPayload::Response(res) => match res {
-                            ExtnResponse::None(_) => RpcResult::Ok(()),
-                            _ => RpcResult::Err(jsonrpsee::core::Error::Custom(
-                                "Unable to fetch".to_owned(),
-                            )),
-                        },
-                        _ => RpcResult::Err(jsonrpsee::core::Error::Custom(
-                            "Unexpected response received from Extn".to_owned(),
-                        )),
-                    }
-                } else {
-                    RpcResult::Err(jsonrpsee::core::Error::Custom(
-                        "Error in getting response from Extn".to_owned(),
-                    ))
-                }
-            }
-            PrivacySettingsStorageType::Cloud | PrivacySettingsStorageType::Sync => {
-                if let Some(dist_session) = platform_state.session_state.get_account_session() {
-                    if let Some(privacy_setting) = property.as_privacy_setting() {
-                        let request = PrivacyCloudRequest::SetProperty(SetPropertyParams {
-                            setting: privacy_setting,
-                            value,
-                            dist_session,
-                        });
-                        let result = platform_state.get_client().send_extn_request(request).await;
-                        if PrivacySettingsStorageType::Sync == privacy_settings_storage_type
-                            && result.is_ok()
-                        {
-                            let _ = StorageManager::set_bool(platform_state, property, value, None)
-                                .await;
-                        }
-                        if result.is_ok() {
-                            return Ok(());
-                        }
-                    }
-                }
-                Err(jsonrpsee::core::Error::Custom(String::from(&format!(
-                    "{:?}: Not Available",
-                    privacy_settings_storage_type
-                ))))
-            }
-        }
+        // match privacy_settings_storage_type {
+        //     PrivacySettingsStorageType::Local => {
+        //         let payload = PrivacySettingsStoreRequest::SetPrivacySettings(property, value);
+        //         let response = platform_state.get_client().send_extn_request(payload).await;
+        //         if let Ok(extn_msg) = response {
+        //             match extn_msg.payload {
+        //                 ExtnPayload::Response(res) => match res {
+        //                     ExtnResponse::None(_) => RpcResult::Ok(()),
+        //                     _ => RpcResult::Err(jsonrpsee::core::Error::Custom(
+        //                         "Unable to fetch".to_owned(),
+        //                     )),
+        //                 },
+        //                 _ => RpcResult::Err(jsonrpsee::core::Error::Custom(
+        //                     "Unexpected response received from Extn".to_owned(),
+        //                 )),
+        //             }
+        //         } else {
+        //             RpcResult::Err(jsonrpsee::core::Error::Custom(
+        //                 "Error in getting response from Extn".to_owned(),
+        //             ))
+        //         }
+        //     }
+        //     PrivacySettingsStorageType::Cloud | PrivacySettingsStorageType::Sync => {
+        //         if let Some(dist_session) = platform_state.session_state.get_account_session() {
+        //             if let Some(privacy_setting) = property.as_privacy_setting() {
+        //                 let request = PrivacyCloudRequest::SetProperty(SetPropertyParams {
+        //                     setting: privacy_setting,
+        //                     value,
+        //                     dist_session,
+        //                 });
+        //                 let result = platform_state.get_client().send_extn_request(request).await;
+        //                 if PrivacySettingsStorageType::Sync == privacy_settings_storage_type
+        //                     && result.is_ok()
+        //                 {
+        //                     let _ = StorageManager::set_bool(platform_state, property, value, None)
+        //                         .await;
+        //                 }
+        //                 if result.is_ok() {
+        //                     return Ok(());
+        //                 }
+        //             }
+        //         }
+        //         Err(jsonrpsee::core::Error::Custom(String::from(&format!(
+        //             "{:?}: Not Available",
+        //             privacy_settings_storage_type
+        //         ))))
+        //     }
+        // }
     }
 
     pub async fn get_settings_local(&self) -> RpcResult<PrivacySettings> {
@@ -1065,36 +1064,37 @@ impl PrivacyServer for PrivacyImpl {
     }
 
     async fn get_settings(&self, _ctx: CallContext) -> RpcResult<PrivacySettings> {
-        use ripple_sdk::api::manifest::device_manifest::PrivacySettingsStorageType;
-        let privacy_settings_storage_type: PrivacySettingsStorageType = self
-            .state
-            .get_device_manifest()
-            .configuration
-            .features
-            .privacy_settings_storage_type;
+        todo!()
+        // use ripple_sdk::api::manifest::device_manifest::PrivacySettingsStorageType;
+        // let privacy_settings_storage_type: PrivacySettingsStorageType = self
+        //     .state
+        //     .get_device_manifest()
+        //     .configuration
+        //     .features
+        //     .privacy_settings_storage_type;
 
-        match privacy_settings_storage_type {
-            PrivacySettingsStorageType::Local | PrivacySettingsStorageType::Sync => {
-                self.get_settings_local().await
-            }
-            PrivacySettingsStorageType::Cloud => {
-                if let Some(dist_session) = self.state.session_state.get_account_session() {
-                    let request = PrivacyCloudRequest::GetProperties(dist_session);
-                    if let Ok(resp) = self.state.get_client().send_extn_request(request).await {
-                        if let Some(b) = resp.payload.extract() {
-                            return Ok(b);
-                        }
-                    }
-                    Err(jsonrpsee::core::Error::Custom(String::from(
-                        "PrivacySettingsStorageType::Cloud: Not Available",
-                    )))
-                } else {
-                    Err(jsonrpsee::core::Error::Custom(String::from(
-                        "Account session is not available",
-                    )))
-                }
-            }
-        }
+        // match privacy_settings_storage_type {
+        //     PrivacySettingsStorageType::Local | PrivacySettingsStorageType::Sync => {
+        //         self.get_settings_local().await
+        //     }
+        //     PrivacySettingsStorageType::Cloud => {
+        //         if let Some(dist_session) = self.state.session_state.get_account_session() {
+        //             let request = PrivacyCloudRequest::GetProperties(dist_session);
+        //             if let Ok(resp) = self.state.get_client().send_extn_request(request).await {
+        //                 if let Some(b) = resp.payload.extract() {
+        //                     return Ok(b);
+        //                 }
+        //             }
+        //             Err(jsonrpsee::core::Error::Custom(String::from(
+        //                 "PrivacySettingsStorageType::Cloud: Not Available",
+        //             )))
+        //         } else {
+        //             Err(jsonrpsee::core::Error::Custom(String::from(
+        //                 "Account session is not available",
+        //             )))
+        //         }
+        //     }
+        //}
     }
 }
 

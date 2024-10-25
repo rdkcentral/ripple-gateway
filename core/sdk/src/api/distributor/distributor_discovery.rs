@@ -29,35 +29,6 @@ use crate::{
 use super::distributor_request::DistributorRequest;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
-pub enum DiscoveryRequest {
-    SetContentAccess(ContentAccessListSetParams),
-    ClearContent(ClearContentSetParams),
-    SignIn(SignInRequestParams),
-}
-
-impl ExtnPayloadProvider for DiscoveryRequest {
-    fn get_from_payload(payload: ExtnPayload) -> Option<Self> {
-        if let ExtnPayload::Request(ExtnRequest::Distributor(DistributorRequest::Discovery(d))) =
-            payload
-        {
-            return Some(d);
-        }
-
-        None
-    }
-
-    fn get_extn_payload(&self) -> ExtnPayload {
-        ExtnPayload::Request(ExtnRequest::Distributor(DistributorRequest::Discovery(
-            self.clone(),
-        )))
-    }
-
-    fn contract() -> RippleContract {
-        RippleContract::Discovery
-    }
-}
-
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub enum MediaEventRequest {
     MediaEventAccountLink(MediaEventsAccountLinkRequestParams),
 }

@@ -24,7 +24,6 @@ use ripple_sdk::{
         apps::{AppEventRequest, EffectiveTransport},
         firebolt::fb_general::ListenRequest,
         gateway::rpc_gateway_api::{ApiMessage, CallContext},
-        protocol::BridgeProtocolRequest,
     },
     log::error,
     serde_json::{json, Value},
@@ -262,7 +261,7 @@ impl AppEvents {
         }
     }
 
-    pub async fn send_event(state: &PlatformState, listener: &EventListener, data: &Value) {
+    pub async fn send_event(_state: &PlatformState, listener: &EventListener, data: &Value) {
         let protocol = listener.call_ctx.protocol.clone();
         let event = Response {
             jsonrpc: TwoPointZero,
@@ -283,17 +282,6 @@ impl AppEvents {
                     mpsc_send_and_log(&session_tx, api_message, "GatewayResponse").await;
                 } else {
                     error!("JsonRPC sender missing");
-                }
-            }
-            EffectiveTransport::Bridge(id) => {
-                if state.supports_bridge() {
-                    let client = state.get_client();
-                    let request = BridgeProtocolRequest::Send(id, api_message);
-                    if let Err(e) = client.send_extn_request(request).await {
-                        error!("Error sending event to bridge {:?}", e);
-                    }
-                } else {
-                    error!("Bridge not supported");
                 }
             }
         }
