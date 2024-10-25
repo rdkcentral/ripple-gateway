@@ -40,7 +40,9 @@ use serde_json::Value;
 pub enum RippleContract {
     /// Used by Main application to provide internal contracts for Extensions
     Internal,
-
+    /// Provided by the distributor useful for adding Governance implementation for handling
+    /// privacy information and other sensitive data.
+    Governance,
     /// Provided by the distributor to discover content, apps, history and recommendations.
     /// Used by [crate::api::distributor::distributor_discovery::DiscoveryRequest]
     Discovery,
