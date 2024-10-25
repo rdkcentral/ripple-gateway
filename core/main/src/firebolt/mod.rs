@@ -26,6 +26,7 @@ pub mod handlers {
     pub mod discovery_rpc;
     pub mod privacy_rpc;
     pub mod advertising_rpc;
+    pub mod user_grants_rpc;
 }
 pub mod firebolt_gatekeeper;
 pub mod firebolt_gateway;
