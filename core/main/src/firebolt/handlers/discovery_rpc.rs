@@ -202,7 +202,7 @@ pub async fn get_content_partner_id(
         app_resp_tx,
     );
     if let Err(e) = platform_state.get_client().send_app_request(app_request) {
-        error!("Send error for set_state {:?}", e);
+        error!("Send error for AppMethod::GetAppContentCatalog {:?}", e);
         return Err(rpc_err("Unable send app request"));
     }
     let resp = rpc_await_oneshot(app_resp_rx).await?;
@@ -495,7 +495,7 @@ impl DiscoveryServer for DiscoveryImpl {
     ) -> RpcResult<bool> {
         info!("Discovery.watchNext");
         let watched_info = WatchedInfo {
-            entity_id: watch_next_info.identifiers.entity_id.unwrap(),
+            entity_id: watch_next_info.identifiers.entity_id.unwrap_or_default(),
             progress: 1.0,
             completed: Some(false),
             watched_on: None,
@@ -625,7 +625,7 @@ impl DiscoveryServer for DiscoveryImpl {
             &self.state,
             FireboltCap::Short(ENTITY_INFO_CAPABILITY.into()).as_str(),
             String::from("entityInfo"),
-            ENTITY_INFO_EVENT,
+            String::from(ENTITY_INFO_EVENT),
             ctx,
             request,
         )
@@ -697,7 +697,7 @@ impl DiscoveryServer for DiscoveryImpl {
             &self.state,
             FireboltCap::Short(PURCHASED_CONTENT_CAPABILITY.into()).as_str(),
             String::from("purchasedContent"),
-            PURCHASED_CONTENT_EVENT,
+            String::from(PURCHASED_CONTENT_EVENT),
             ctx,
             request,
         )

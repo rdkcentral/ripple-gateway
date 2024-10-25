@@ -38,7 +38,7 @@ use ripple_sdk::{
             },
             fb_metrics::{
                 AppLifecycleState, AppLifecycleStateChange, BehavioralMetricContext,
-                BehavioralMetricPayload, ErrorType, MetricsError, SystemErrorParams,
+                BehavioralMetricPayload,
             },
             fb_secondscreen::SECOND_SCREEN_EVENT_ON_LAUNCH_REQUEST,
         },
@@ -94,6 +94,10 @@ use crate::{
 };
 
 const APP_ID_TITLE_FILE_NAME: &str = "appInfo.json";
+const MIGRATED_APPS_FILE_NAME: &str = "migrations.json";
+const APP_ID_TITLE_DIR_NAME: &str = "app_info";
+const MIGRATED_APPS_DIR_NAME: &str = "apps";
+
 #[derive(Debug, Clone)]
 pub struct App {
     pub initial_session: AppSession,
@@ -115,68 +119,115 @@ pub struct AppManagerState {
     // This is a map <app_id, app_title>
     app_title: Arc<RwLock<HashMap<String, String>>>,
     app_title_persist_path: String,
+    // This is a map <app_id, app_migrated_state>
+    migrated_apps: Arc<RwLock<HashMap<String, Vec<String>>>>,
+    migrated_apps_persist_path: String,
 }
 
 impl AppManagerState {
     pub fn new(saved_dir: &str) -> Self {
-        let persist_path = Self::get_storage_path(saved_dir);
-        let persisted_app_titles = AppManagerState::load_persisted_app_titles(&persist_path);
+        let app_title_persist_path = Self::get_storage_path(saved_dir, APP_ID_TITLE_DIR_NAME);
+        let persisted_app_titles =
+            Self::load_persisted_data::<String>(&app_title_persist_path, APP_ID_TITLE_FILE_NAME);
+
+        let migrated_apps_persist_path = Self::get_storage_path(saved_dir, MIGRATED_APPS_DIR_NAME);
+        let persisted_migrated_apps = Self::load_persisted_data::<Vec<String>>(
+            &migrated_apps_persist_path,
+            MIGRATED_APPS_FILE_NAME,
+        );
+
         AppManagerState {
             apps: Arc::new(RwLock::new(HashMap::new())),
             intents: Arc::new(RwLock::new(HashMap::new())),
             app_title: Arc::new(RwLock::new(persisted_app_titles)),
-            app_title_persist_path: persist_path,
+            app_title_persist_path,
+            migrated_apps: Arc::new(RwLock::new(persisted_migrated_apps)),
+            migrated_apps_persist_path,
         }
     }
-    fn restore_app_info_from_storage(storage_path: &str) -> Result<Value, String> {
-        let file_path = std::path::Path::new(storage_path).join(APP_ID_TITLE_FILE_NAME);
 
+    fn restore_data_from_storage(storage_path: &str, file_name: &str) -> Result<Value, String> {
+        let file_path = std::path::Path::new(storage_path).join(file_name);
         let file = fs::OpenOptions::new()
             .read(true)
             .open(file_path)
-            .map_err(|error| format!("Failed to open AppInfo storage file: {}", error))?;
+            .map_err(|error| format!("Failed to open storage file: {}", error))?;
 
         let data: Value = serde_json::from_reader(&file)
-            .map_err(|error| format!("Failed to read data from AppInfo storage file: {}", error))?;
+            .map_err(|error| format!("Failed to read data from storage file: {}", error))?;
         Ok(data)
     }
-    fn load_persisted_app_titles(storage_path: &str) -> HashMap<String, String> {
+
+    fn load_persisted_data<T>(storage_path: &str, file_name: &str) -> HashMap<String, T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
         // let storage_path = Self::get_storage_path(saved_dir);
-        let stored_value_res = Self::restore_app_info_from_storage(storage_path);
+        let stored_value_res = Self::restore_data_from_storage(storage_path, file_name);
         if let Ok(stored_value) = stored_value_res {
-            let map_res: Result<HashMap<String, String>, _> = serde_json::from_value(stored_value);
+            let map_res: Result<HashMap<String, T>, _> = serde_json::from_value(stored_value);
             map_res.unwrap_or_default()
         } else {
             HashMap::new()
         }
     }
-    fn get_storage_path(saved_dir: &str) -> String {
-        let mut path = std::path::Path::new(saved_dir).join("app_info");
+
+    fn get_storage_path(saved_dir: &str, dir_name: &str) -> String {
+        let mut path = std::path::Path::new(saved_dir).join(dir_name);
         if !path.exists() {
             if let Err(err) = fs::create_dir_all(path.clone()) {
                 error!(
-                    "Could not create directory {} for persisting app info err: {:?}, using /tmp/app_info/",
+                    "Could not create directory {} for persisting data err: {:?}, using /tmp/{}/",
                     path.display().to_string(),
-                    err
+                    err,
+                    dir_name
                 );
-                path =
-                    std::path::Path::new(&env::temp_dir().display().to_string()).join("app_info");
+
+                path = std::path::Path::new(&env::temp_dir().display().to_string()).join(dir_name);
+
                 if let Err(err) = fs::create_dir_all(path.clone()) {
                     error!(
-                        "Could not create directory {} for persisting app info err: {:?}, app title will persist in /tmp/",
+                        "Could not create directory {} for persisting data err: {:?}, data will persist in /tmp/",
                         path.display(),
                         err
                     );
-                } else {
                     path = std::path::Path::new("/tmp").to_path_buf();
                 }
             }
         }
+
         path.display().to_string()
     }
+
+    fn persist_data<T>(
+        &self,
+        data: &Arc<RwLock<HashMap<String, T>>>,
+        persist_path: &str,
+        file_name: &str,
+    ) -> bool
+    where
+        T: serde::Serialize + std::fmt::Debug,
+    {
+        let map = { data.read().unwrap() };
+        let path = std::path::Path::new(persist_path).join(file_name);
+        if let Ok(file) = fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(path)
+        {
+            return serde_json::to_writer_pretty(&file, &serde_json::to_value(&*map).unwrap())
+                .is_ok();
+        } else {
+            error!("unable to create file: {}:", file_name);
+        }
+        false
+    }
+
     pub fn get_persisted_app_title_for_app_id(&self, app_id: &str) -> Option<String> {
         self.app_title.read().unwrap().get(app_id).cloned()
     }
+
     pub fn persist_app_title(&self, app_id: &str, title: &str) -> bool {
         {
             let _ = self
@@ -185,21 +236,30 @@ impl AppManagerState {
                 .unwrap()
                 .insert(app_id.to_owned(), title.to_owned());
         }
-        let map = { self.app_title.read().unwrap().clone() };
-        let path = std::path::Path::new(&self.app_title_persist_path).join(APP_ID_TITLE_FILE_NAME);
-        if let Ok(file) = fs::OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(true)
-            .open(path)
-        {
-            return serde_json::to_writer_pretty(&file, &serde_json::to_value(map).unwrap())
-                .is_ok();
-        } else {
-            error!("unable to create file: {}:", APP_ID_TITLE_FILE_NAME);
-        }
-        false
+        self.persist_data(
+            &self.app_title,
+            &self.app_title_persist_path,
+            APP_ID_TITLE_FILE_NAME,
+        )
     }
+
+    pub fn get_persisted_migrated_state_for_app_id(&self, app_id: &str) -> Option<Vec<String>> {
+        self.migrated_apps.read().unwrap().get(app_id).cloned()
+    }
+
+    pub fn persist_migrated_state(&self, app_id: &str, state: String) -> bool {
+        {
+            let mut migrated_apps = self.migrated_apps.write().unwrap();
+            let entry = migrated_apps.entry(app_id.to_owned()).or_default();
+            entry.push(state);
+        }
+        self.persist_data(
+            &self.migrated_apps,
+            &self.migrated_apps_persist_path,
+            MIGRATED_APPS_FILE_NAME,
+        )
+    }
+
     pub fn exists(&self, app_id: &str) -> bool {
         self.apps.read().unwrap().contains_key(app_id)
     }
@@ -482,7 +542,7 @@ impl DelegatedLauncherHandler {
         &mut self,
         app_id: &str,
         method: &AppMethod,
-        app_manager_response: Result<AppManagerResponse, AppError>,
+        _app_manager_response: Result<AppManagerResponse, AppError>,
     ) {
         let previous_state = self
             .platform_state
@@ -499,36 +559,10 @@ impl DelegatedLauncherHandler {
             governance_state: None,
         };
 
-        /*always send errors, regardless of whether launcher impl maps them */
-        let error: Option<AppError> = app_manager_response.clone().err();
-        if let Some(err) = error {
-            TelemetryBuilder::send_system_error(
-                &self.platform_state,
-                SystemErrorParams {
-                    error_name: String::from("launch_fail"),
-                    component: String::from("launcher_handler_receive"),
-                    context: Some(format!("{:?}", err.clone())),
-                },
-            );
-            let error_message = BehavioralMetricPayload::Error(MetricsError {
-                context: context.clone(),
-                /*
-                TODO... do third_part_error correctly
-                */
-                error_type: ErrorType::other,
-                /*
-                TODO: make code correct */
-                code: String::from("AppError"),
-                /*   TODO: make code correct  */
-                description: String::from("AppError"),
-                visible: true,
-                parameters: None,
-                durable_app_id: app_id.to_string(),
-                third_party_error: true,
-            });
-            let _ =
-                send_metric_for_app_state_change(&self.platform_state, error_message, app_id).await;
-        };
+        /*
+        Do not forward internal errors from the launch handler as AppErrors. Only forward third-party application error messages as AppErrors.
+        TBD: Collaborate with the SIFT team to obtain the appropriate SIFT code for sharing error messages from the AppLauncher.
+        */
 
         let inactive = self
             .platform_state
@@ -793,12 +827,11 @@ impl DelegatedLauncherHandler {
         emit_event: bool,
     ) {
         let app_id = session.app.id.clone();
-        let app_opt = platform_state.app_manager_state.get(&app_id);
-        if app_opt.is_none() {
-            return;
-        }
-        // safe to unwrap here as app_opt is not None
-        let app = app_opt.unwrap();
+        let app = match platform_state.app_manager_state.get(&app_id) {
+            Some(app) => app,
+            None => return,
+        };
+
         if app.active_session_id.is_none() {
             platform_state
                 .app_manager_state
@@ -924,8 +957,8 @@ impl DelegatedLauncherHandler {
             "get the list of grant policies from device manifest file:{:?}",
             grant_polices_map_opt
         );
-        grant_polices_map_opt.as_ref()?;
-        let grant_polices_map = grant_polices_map_opt.unwrap();
+
+        let grant_polices_map = grant_polices_map_opt?;
         //Filter out the caps only that has evaluate at
         let mut final_perms: Vec<FireboltPermission> = app_perms
             .into_iter()
@@ -994,11 +1027,10 @@ impl DelegatedLauncherHandler {
 
     pub async fn emit_completed(platform_state: &PlatformState, app_id: &String) {
         platform_state.session_state.clear_pending_session(app_id);
-        let app_opt = platform_state.app_manager_state.get(app_id);
-        if app_opt.is_none() {
-            return;
-        }
-        let app = app_opt.unwrap();
+        let app = match platform_state.app_manager_state.get(app_id) {
+            Some(app) => app,
+            None => return,
+        };
         let sr = SessionResponse::Completed(Self::to_completed_session(&app));
         AppEvents::emit(
             platform_state,
@@ -1099,13 +1131,14 @@ impl DelegatedLauncherHandler {
     ) -> Result<AppManagerResponse, AppError> {
         debug!("set_state: entry: app_id={}, state={:?}", app_id, state);
         let am_state = &self.platform_state.app_manager_state;
-        let app = am_state.get(app_id);
-        if app.is_none() {
-            warn!("appid:{} Not found", app_id);
-            return Err(AppError::NotFound);
-        }
+        let app = match am_state.get(app_id) {
+            Some(app) => app,
+            None => {
+                warn!("appid:{} Not found", app_id);
+                return Err(AppError::NotFound);
+            }
+        };
 
-        let app = app.unwrap();
         let previous_state = app.state;
 
         if previous_state == state {
@@ -1114,6 +1147,27 @@ impl DelegatedLauncherHandler {
                 app_id, state
             );
             return Err(AppError::UnexpectedState);
+        }
+
+        // validate other transition cases
+        if self
+            .platform_state
+            .get_device_manifest()
+            .configuration
+            .default_values
+            .lifecycle_transition_validate
+        {
+            info!(
+                "Calling is_valid_lifecycle_transition for app_id:{} prev state:{:?} state{:?}",
+                app_id, previous_state, state
+            );
+            if !Self::is_valid_lifecycle_transition(previous_state, state) {
+                warn!(
+                    "set_state app_id:{} prev state:{:?} state{:?} Cannot transition",
+                    app_id, previous_state, state
+                );
+                return Err(AppError::UnexpectedState);
+            }
         }
 
         if state == LifecycleState::Inactive || state == LifecycleState::Unloading {
@@ -1150,12 +1204,13 @@ impl DelegatedLauncherHandler {
     }
 
     fn ready_check(&self, app_id: &str) -> AppResponse {
-        let app = self.platform_state.app_manager_state.get(app_id);
-        if app.is_none() {
-            warn!("appid:{} Not found", app_id);
-            return Err(AppError::NotFound);
-        }
-        let app = app.unwrap();
+        let app = match self.platform_state.app_manager_state.get(app_id) {
+            Some(app) => app,
+            None => {
+                warn!("appid:{} Not found", app_id);
+                return Err(AppError::NotFound);
+            }
+        };
         match app.state {
             LifecycleState::Initializing => Ok(AppManagerResponse::None),
             _ => Err(AppError::UnexpectedState),
@@ -1163,12 +1218,13 @@ impl DelegatedLauncherHandler {
     }
 
     fn finished_check(&self, app_id: &str) -> AppResponse {
-        let app = self.platform_state.app_manager_state.get(app_id);
-        if app.is_none() {
-            warn!("appid:{} Not found", app_id);
-            return Err(AppError::NotFound);
-        }
-        let app = app.unwrap();
+        let app = match self.platform_state.app_manager_state.get(app_id) {
+            Some(app) => app,
+            None => {
+                warn!("appid:{} Not found", app_id);
+                return Err(AppError::NotFound);
+            }
+        };
         match app.state {
             LifecycleState::Unloading => Ok(AppManagerResponse::None),
             _ => Err(AppError::UnexpectedState),
@@ -1311,5 +1367,226 @@ impl DelegatedLauncherHandler {
                 }
             }
         }
+    }
+
+    fn is_valid_lifecycle_transition(from: LifecycleState, to: LifecycleState) -> bool {
+        // Early exit, Not do the state transition when from and to States are the same
+        if from == to {
+            return false;
+        }
+
+        match (from, to) {
+            // Allow transitioning from initializing to only Inactive
+            (LifecycleState::Initializing, _) => to == LifecycleState::Inactive,
+            // An app MUST NOT be transitioned to Suspended, or Unloaded (i.e. not running anymore)
+            // from any state other than Inactive
+            (_, LifecycleState::Suspended | LifecycleState::Unloading) => {
+                from == LifecycleState::Inactive
+            }
+            // An app MUST NOT be transitioned (or immediate set to) Foreground
+            // without going through either Inactive or Background
+            (_, LifecycleState::Foreground) => {
+                from == LifecycleState::Inactive || from == LifecycleState::Background
+            }
+            // Transition from Suspended to only Inactive is allowed
+            (LifecycleState::Suspended, LifecycleState::Inactive) => true,
+            (LifecycleState::Suspended, _) => false,
+            // Do not allow transition to initializing from any other state.
+            (_, LifecycleState::Initializing) => false,
+            // No more state transitions are allowed from Unloading
+            (LifecycleState::Unloading, _) => false,
+            // Allow any other state transition
+            _ => true,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_same_state_transition() {
+        assert!(!DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Inactive,
+            LifecycleState::Inactive
+        ),);
+        assert!(!DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Foreground,
+            LifecycleState::Foreground
+        ),);
+    }
+
+    #[test]
+    fn test_transition_from_initializing() {
+        // Initializing to Inactive
+        assert!(DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Initializing,
+            LifecycleState::Inactive
+        ),);
+        // Initializing to Foreground
+        assert!(!DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Initializing,
+            LifecycleState::Foreground
+        ),);
+        // Initializing to Background
+        assert!(!DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Initializing,
+            LifecycleState::Background
+        ),);
+        // Initializing to Suspended
+        assert!(!DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Initializing,
+            LifecycleState::Suspended
+        ),);
+        // Initializing to Unloading
+        assert!(!DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Initializing,
+            LifecycleState::Unloading
+        ),);
+    }
+
+    #[test]
+    fn test_transition_from_inactive() {
+        // Inactive to Background
+        assert!(DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Inactive,
+            LifecycleState::Background
+        ),);
+        // Inactive to Foreground
+        assert!(DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Inactive,
+            LifecycleState::Foreground
+        ),);
+        // Inactive to Suspended
+        assert!(DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Inactive,
+            LifecycleState::Suspended
+        ),);
+        // Inactive to Unloading
+        assert!(DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Inactive,
+            LifecycleState::Unloading
+        ),);
+        // Inactive to Initializing
+        assert!(!DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Inactive,
+            LifecycleState::Initializing
+        ),);
+    }
+
+    #[test]
+    fn test_transition_from_foreground() {
+        // Foreground to Background
+        assert!(DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Foreground,
+            LifecycleState::Background
+        ),);
+        // Foreground to Inactive
+        assert!(DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Foreground,
+            LifecycleState::Inactive
+        ),);
+        // Foreground to Suspended
+        assert!(!DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Foreground,
+            LifecycleState::Suspended
+        ),);
+        // Foreground to Unloading
+        assert!(!DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Foreground,
+            LifecycleState::Unloading
+        ),);
+        // Foreground to Initializing
+        assert!(!DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Foreground,
+            LifecycleState::Initializing
+        ),);
+    }
+
+    #[test]
+    fn test_transition_from_background() {
+        // Background to Foreground
+        assert!(DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Background,
+            LifecycleState::Foreground
+        ),);
+        // Background to Inactive
+        assert!(DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Background,
+            LifecycleState::Inactive
+        ),);
+        // Background to Suspended
+        assert!(!DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Background,
+            LifecycleState::Suspended
+        ),);
+        // Background to Unloading
+        assert!(!DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Background,
+            LifecycleState::Unloading
+        ),);
+        // Background to Initializing
+        assert!(!DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Background,
+            LifecycleState::Initializing
+        ),);
+    }
+
+    #[test]
+    fn test_transition_from_suspended() {
+        // Suspended to Inactive
+        assert!(DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Suspended,
+            LifecycleState::Inactive
+        ),);
+        // Suspended to Foreground
+        assert!(!DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Suspended,
+            LifecycleState::Foreground
+        ),);
+        // Suspended to Background
+        assert!(!DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Suspended,
+            LifecycleState::Background
+        ),);
+        // Suspended to Unloading
+        assert!(!DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Suspended,
+            LifecycleState::Unloading
+        ),);
+        // Suspended to Initializing
+        assert!(!DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Suspended,
+            LifecycleState::Initializing
+        ),);
+    }
+    #[test]
+    fn test_transition_from_unloading() {
+        // Unloading to Inactive
+        assert!(!DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Unloading,
+            LifecycleState::Inactive
+        ),);
+        // Unloading to Foreground
+        assert!(!DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Unloading,
+            LifecycleState::Foreground
+        ),);
+        // Unloading to Background
+        assert!(!DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Unloading,
+            LifecycleState::Background
+        ),);
+        // Unloading to Suspended
+        assert!(!DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Unloading,
+            LifecycleState::Suspended
+        ),);
+        // Unloading to Initializing
+        assert!(!DelegatedLauncherHandler::is_valid_lifecycle_transition(
+            LifecycleState::Unloading,
+            LifecycleState::Initializing
+        ),);
     }
 }

@@ -15,6 +15,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
+use std::time::Instant;
+
 use ripple_sdk::{
     api::apps::AppRequest,
     async_channel::{unbounded, Receiver as CReceiver, Sender as CSender},
@@ -29,6 +31,7 @@ use crate::{
     bootstrap::manifest::{
         apps::LoadAppLibraryStep, device::LoadDeviceManifestStep, extn::LoadExtnManifestStep,
     },
+    broker::endpoint_broker::BrokerOutput,
     firebolt::firebolt_gateway::FireboltGatewayCommand,
     service::extn::ripple_client::RippleClient,
 };
@@ -42,6 +45,7 @@ pub struct ChannelsState {
     app_req_channel: TransientChannel<AppRequest>,
     extn_sender: CSender<CExtnMessage>,
     extn_receiver: CReceiver<CExtnMessage>,
+    broker_channel: TransientChannel<BrokerOutput>,
 }
 
 impl ChannelsState {
@@ -49,12 +53,14 @@ impl ChannelsState {
         let (gateway_tx, gateway_tr) = mpsc::channel(32);
         let (app_req_tx, app_req_tr) = mpsc::channel(32);
         let (ctx, ctr) = unbounded();
+        let (broker_tx, broker_rx) = mpsc::channel(10);
 
         ChannelsState {
             gateway_channel: TransientChannel::new(gateway_tx, gateway_tr),
             app_req_channel: TransientChannel::new(app_req_tx, app_req_tr),
             extn_sender: ctx,
             extn_receiver: ctr,
+            broker_channel: TransientChannel::new(broker_tx, broker_rx),
         }
     }
 
@@ -85,6 +91,14 @@ impl ChannelsState {
     pub fn get_iec_channel() -> (CSender<CExtnMessage>, CReceiver<CExtnMessage>) {
         unbounded()
     }
+
+    pub fn get_broker_sender(&self) -> Sender<BrokerOutput> {
+        self.broker_channel.get_sender()
+    }
+
+    pub fn get_broker_receiver(&self) -> Result<Receiver<BrokerOutput>, RippleError> {
+        self.broker_channel.get_receiver()
+    }
 }
 
 impl Default for ChannelsState {
@@ -95,6 +109,7 @@ impl Default for ChannelsState {
 
 #[derive(Debug, Clone)]
 pub struct BootstrapState {
+    pub start_time: Instant,
     pub platform_state: PlatformState,
     pub channels_state: ChannelsState,
     pub extn_state: ExtnState,
@@ -105,9 +120,7 @@ impl BootstrapState {
         let channels_state = ChannelsState::new();
         let client = RippleClient::new(channels_state.clone());
         let device_manifest = LoadDeviceManifestStep::get_manifest();
-        let app_manifest_result =
-            LoadAppLibraryStep::load_app_library(device_manifest.get_app_library_path())
-                .expect("Valid app manifest");
+        let app_manifest_result = LoadAppLibraryStep::load_app_library();
         let extn_manifest = LoadExtnManifestStep::get_manifest();
         let extn_state = ExtnState::new(channels_state.clone(), extn_manifest.clone());
         let platform_state = PlatformState::new(
@@ -150,6 +163,7 @@ impl BootstrapState {
             None
         }
         Ok(BootstrapState {
+            start_time: Instant::now(),
             platform_state,
             channels_state,
             extn_state,

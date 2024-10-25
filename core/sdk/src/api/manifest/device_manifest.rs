@@ -26,12 +26,9 @@ use std::{
 
 use crate::{
     api::{
-        device::{
-            device_user_grants_data::{GrantExclusionFilter, GrantPolicies},
-            DevicePlatformType,
-        },
+        device::device_user_grants_data::{GrantExclusionFilter, GrantPolicies},
         distributor::distributor_privacy::DataEventType,
-        firebolt::fb_capabilities::{FireboltCap, FireboltPermission},
+        firebolt::fb_capabilities::FireboltPermission,
         storage_property::StorageProperty,
     },
     utils::error::RippleError,
@@ -43,11 +40,12 @@ pub const METRICS_LOGGING_PERCENTAGE_DEFAULT: u32 = 10;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct RippleConfiguration {
+    #[serde(default = "ws_configuration_default")]
     pub ws_configuration: WsConfiguration,
+    #[serde(default = "ws_configuration_internal_default")]
     pub internal_ws_configuration: WsConfiguration,
-    pub platform: DevicePlatformType,
+    #[serde(default = "platform_parameters_default")]
     pub platform_parameters: Value,
-    pub distribution_platform: String,
     pub distribution_id_salt: Option<IdSalt>,
     pub form_factor: String,
     #[serde(default)]
@@ -95,13 +93,34 @@ pub struct CapabilityConfiguration {
 #[cfg_attr(test, derive(PartialEq))]
 #[serde(rename_all = "camelCase")]
 pub struct LifecycleConfiguration {
+    #[serde(default = "lc_config_app_ready_timeout_ms_default")]
     pub app_ready_timeout_ms: u64,
+    #[serde(default = "lc_config_app_finished_timeout_ms_default")]
     pub app_finished_timeout_ms: u64,
+    #[serde(default = "lc_config_max_loaded_apps_default")]
     pub max_loaded_apps: u64,
+    #[serde(default = "lc_config_min_available_memory_kb_default")]
     pub min_available_memory_kb: u64,
+    #[serde(default)]
     pub prioritized: Vec<String>,
     #[serde(default)]
     pub emit_app_init_events_enabled: bool,
+}
+
+pub fn lc_config_app_ready_timeout_ms_default() -> u64 {
+    DEFAULT_LIFECYCLE_POLICY.app_ready_timeout_ms
+}
+
+pub fn lc_config_app_finished_timeout_ms_default() -> u64 {
+    DEFAULT_LIFECYCLE_POLICY.app_finished_timeout_ms
+}
+
+pub fn lc_config_max_loaded_apps_default() -> u64 {
+    DEFAULT_RENTENTION_POLICY_MAX_RETAINED
+}
+
+pub fn lc_config_min_available_memory_kb_default() -> u64 {
+    DEFAULT_RENTENTION_POLICY_MIN_AVAILABLE_MEM_KB
 }
 
 impl LifecycleConfiguration {
@@ -115,15 +134,23 @@ impl LifecycleConfiguration {
 pub struct DeviceManifest {
     pub configuration: RippleConfiguration,
     pub capabilities: CapabilityConfiguration,
+    #[serde(default)]
     pub lifecycle: LifecycleConfiguration,
     pub applications: ApplicationsConfiguration,
 }
 
-#[derive(Deserialize, Debug, Clone, Default)]
+#[derive(Deserialize, Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct DistributionConfiguration {
     pub library: String,
-    pub catalog: String,
+}
+
+impl Default for DistributionConfiguration {
+    fn default() -> Self {
+        DistributionConfiguration {
+            library: "/etc/firebolt-app-library.json".into(),
+        }
+    }
 }
 
 #[derive(Deserialize, Debug, Clone, Default)]
@@ -158,6 +185,7 @@ impl ApplicationDefaultsConfiguration {
 #[derive(Deserialize, Debug, Clone, Default)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct ApplicationsConfiguration {
+    #[serde(default)]
     pub distribution: DistributionConfiguration,
     pub defaults: ApplicationDefaultsConfiguration,
     #[serde(default)]
@@ -168,6 +196,25 @@ pub struct ApplicationsConfiguration {
 pub struct WsConfiguration {
     pub enabled: bool,
     pub gateway: String,
+}
+
+pub fn ws_configuration_default() -> WsConfiguration {
+    WsConfiguration {
+        enabled: true,
+        gateway: "127.0.0.1:3473".into(),
+    }
+}
+
+pub fn ws_configuration_internal_default() -> WsConfiguration {
+    WsConfiguration {
+        enabled: true,
+        gateway: "127.0.0.1:3474".into(),
+    }
+}
+
+pub fn platform_parameters_default() -> Value {
+    serde_json::to_value(HashMap::from([("gateway", "ws://127.0.0.1:9998/jsonrpc")]))
+        .unwrap_or(Value::Null)
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
@@ -199,6 +246,9 @@ pub const DEFAULT_LIFECYCLE_POLICY: LifecyclePolicy = LifecyclePolicy {
     app_ready_timeout_ms: 30000,
     app_finished_timeout_ms: 2000,
 };
+
+pub const DEFAULT_RENTENTION_POLICY_MAX_RETAINED: u64 = 5;
+pub const DEFAULT_RENTENTION_POLICY_MIN_AVAILABLE_MEM_KB: u64 = 1024;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct IdSalt {
@@ -232,9 +282,13 @@ pub enum AppManifestLoad {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DefaultValues {
+    #[serde(default = "country_code_default")]
     pub country_code: String,
+    #[serde(default = "language_default")]
     pub language: String,
+    #[serde(default = "locale_default")]
     pub locale: String,
+    #[serde(default = "name_default")]
     pub name: String,
     #[serde(default = "captions_default")]
     pub captions: CaptionStyle,
@@ -272,6 +326,22 @@ pub struct DefaultValues {
     pub skip_restriction: String,
     #[serde(default = "default_video_dimensions")]
     pub video_dimensions: Vec<i32>,
+    #[serde(default)]
+    pub lifecycle_transition_validate: bool,
+    #[serde(default, rename = "mediaProgressAsWatchedEvents")]
+    pub media_progress_as_watched_events: bool,
+    #[serde(default)]
+    pub accessibility_audio_description_settings: bool,
+    #[serde(default)]
+    pub role_based_support: bool,
+    #[serde(default = "country_postal_code_default")]
+    pub country_postal_code: HashMap<String, String>,
+    #[serde(default = "countries_using_us_privacy_default")]
+    pub countries_using_us_privacy: Vec<String>,
+}
+
+pub fn name_default() -> String {
+    "Living Room".to_string()
 }
 
 fn additional_info_default() -> HashMap<String, String> {
@@ -288,6 +358,17 @@ pub fn default_skip_restriction() -> String {
 
 pub fn default_video_dimensions() -> Vec<i32> {
     vec![1920, 1080]
+}
+
+pub fn countries_using_us_privacy_default() -> Vec<String> {
+    Vec::new()
+}
+
+fn country_postal_code_default() -> HashMap<String, String> {
+    let mut default_map = HashMap::default();
+    default_map.insert("USA".to_string(), "66952".to_string());
+    default_map.insert("CAN".to_string(), "L6T 0C1".to_string());
+    default_map
 }
 
 #[derive(Deserialize, Debug, Clone, Default)]
@@ -328,7 +409,9 @@ pub struct CaptionStyle {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct VoiceGuidance {
+    #[serde(default)]
     pub enabled: bool,
+    #[serde(default = "voice_guidance_speed_default")]
     pub speed: f32,
 }
 
@@ -350,10 +433,10 @@ pub enum AppLauncherMode {
 impl Default for DefaultValues {
     fn default() -> Self {
         DefaultValues {
-            country_code: "US".to_string(),
-            language: "en".to_string(),
-            locale: "en-US".to_string(),
-            name: "Living Room".to_string(),
+            country_code: country_code_default(),
+            language: language_default(),
+            locale: locale_default(),
+            name: name_default(),
             captions: captions_default(),
             voice: voice_guidance_default(),
             additional_info: additional_info_default(),
@@ -372,8 +455,26 @@ impl Default for DefaultValues {
             allow_watch_history: false,
             skip_restriction: "none".to_string(),
             video_dimensions: default_video_dimensions(),
+            lifecycle_transition_validate: false,
+            media_progress_as_watched_events: false,
+            accessibility_audio_description_settings: false,
+            role_based_support: false,
+            country_postal_code: country_postal_code_default(),
+            countries_using_us_privacy: countries_using_us_privacy_default(),
         }
     }
+}
+
+fn country_code_default() -> String {
+    "US".to_string()
+}
+
+fn language_default() -> String {
+    "en".to_string()
+}
+
+fn locale_default() -> String {
+    "en-US".to_string()
 }
 
 fn captions_default() -> CaptionStyle {
@@ -399,6 +500,10 @@ fn voice_guidance_default() -> VoiceGuidance {
         enabled: false,
         speed: 5.0,
     }
+}
+
+fn voice_guidance_speed_default() -> f32 {
+    5.0
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -444,7 +549,7 @@ fn default_saved_dir() -> String {
     String::from("/opt/persistent/ripple")
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct DataGovernanceConfig {
     policies: Vec<DataGovernancePolicy>,
 }
@@ -455,6 +560,89 @@ impl DataGovernanceConfig {
             .iter()
             .find(|p| p.data_type == data_type)
             .cloned()
+    }
+}
+
+impl Default for DataGovernanceConfig {
+    fn default() -> Self {
+        DataGovernanceConfig {
+            policies: vec![
+                DataGovernancePolicy::new(
+                    DataEventType::Watched,
+                    vec![
+                        DataGovernanceSettingTag::new(
+                            StorageProperty::AllowPersonalization,
+                            false,
+                            HashSet::from([
+                                "dataPlatform:cet:xvp:personalization:recommendation".into()
+                            ]),
+                        ),
+                        DataGovernanceSettingTag::new(
+                            StorageProperty::AllowResumePoints,
+                            false,
+                            HashSet::from([
+                                "dataPlatform:cet:xvp:personalization:continueWatching".into(),
+                            ]),
+                        ),
+                        DataGovernanceSettingTag::new(
+                            StorageProperty::AllowWatchHistory,
+                            false,
+                            HashSet::from([
+                                "dataPlatform:cet:xvp:personalization:continueWatching".into(),
+                            ]),
+                        ),
+                        DataGovernanceSettingTag::new(
+                            StorageProperty::AllowProductAnalytics,
+                            false,
+                            HashSet::from(["dataPlatform:cet:xvp:analytics".into()]),
+                        ),
+                        DataGovernanceSettingTag::new(
+                            StorageProperty::AllowBusinessAnalytics,
+                            false,
+                            HashSet::from(["dataPlatform:cet:xvp:analytics:business".into()]),
+                        ),
+                    ],
+                    false,
+                ),
+                DataGovernancePolicy::new(
+                    DataEventType::BusinessIntelligence,
+                    vec![
+                        DataGovernanceSettingTag::new(
+                            StorageProperty::AllowPersonalization,
+                            false,
+                            HashSet::from([
+                                "dataPlatform:cet:xvp:personalization:recommendation".into()
+                            ]),
+                        ),
+                        DataGovernanceSettingTag::new(
+                            StorageProperty::AllowResumePoints,
+                            false,
+                            HashSet::from([
+                                "dataPlatform:cet:xvp:personalization:continueWatching".into(),
+                            ]),
+                        ),
+                        DataGovernanceSettingTag::new(
+                            StorageProperty::AllowWatchHistory,
+                            false,
+                            HashSet::from([
+                                "dataPlatform:cet:xvp:personalization:continueWatching".into(),
+                            ]),
+                        ),
+                        DataGovernanceSettingTag::new(
+                            StorageProperty::AllowProductAnalytics,
+                            false,
+                            HashSet::from(["dataPlatform:cet:xvp:analytics".into()]),
+                        ),
+                        DataGovernanceSettingTag::new(
+                            StorageProperty::AllowBusinessAnalytics,
+                            false,
+                            HashSet::from(["dataPlatform:cet:xvp:analytics:business".into()]),
+                        ),
+                    ],
+                    false,
+                ),
+            ],
+        }
     }
 }
 
@@ -497,6 +685,20 @@ pub struct DataGovernancePolicy {
     pub drop_on_all_tags: bool,
 }
 
+impl DataGovernancePolicy {
+    pub fn new(
+        data_type: DataEventType,
+        setting_tags: Vec<DataGovernanceSettingTag>,
+        drop_on_all_tags: bool,
+    ) -> Self {
+        DataGovernancePolicy {
+            data_type,
+            setting_tags,
+            drop_on_all_tags,
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct DataGovernanceSettingTag {
     pub setting: StorageProperty,
@@ -505,14 +707,22 @@ pub struct DataGovernanceSettingTag {
     pub tags: HashSet<String>,
 }
 
+impl DataGovernanceSettingTag {
+    pub fn new(setting: StorageProperty, enforcement_value: bool, tags: HashSet<String>) -> Self {
+        DataGovernanceSettingTag {
+            setting,
+            enforcement_value,
+            tags,
+        }
+    }
+}
+
 impl Default for RippleConfiguration {
     fn default() -> Self {
         Self {
             ws_configuration: Default::default(),
             internal_ws_configuration: Default::default(),
-            platform: DevicePlatformType::Thunder,
             platform_parameters: Value::Null,
-            distribution_platform: Default::default(),
             distribution_id_salt: None,
             form_factor: Default::default(),
             default_values: DefaultValues::default(),
@@ -551,14 +761,6 @@ impl DeviceManifest {
                 Err(RippleError::InvalidInput)
             }
         }
-    }
-
-    /// Provides the device platform information from the device manifest
-    /// as this value is read from a file loaded dynamically during runtime the response
-    /// provided will always be a result which can have an error. Handler should panic if
-    /// no valid platform type is provided.
-    pub fn get_device_platform(&self) -> DevicePlatformType {
-        self.configuration.platform.clone()
     }
 
     pub fn get_web_socket_enabled(&self) -> bool {
@@ -605,8 +807,10 @@ impl DeviceManifest {
         }
     }
 
-    pub fn get_supported_caps(&self) -> Vec<FireboltCap> {
-        FireboltCap::from_vec_string(self.clone().capabilities.supported)
+    pub fn get_supported_caps(&self) -> Vec<FireboltPermission> {
+        let supported = self.clone().capabilities.supported;
+        let role_based_support = self.configuration.default_values.role_based_support;
+        FireboltPermission::from_vec_string(supported, role_based_support)
     }
 
     pub fn get_caps_requiring_grant(&self) -> Vec<String> {
@@ -652,6 +856,7 @@ impl DeviceManifest {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+    use crate::api::firebolt::fb_capabilities::{CapabilityRole, FireboltCap};
     pub trait Mockable {
         fn mock() -> DeviceManifest
         where
@@ -670,7 +875,6 @@ pub(crate) mod tests {
                         enabled: true,
                         gateway: "127.0.0.1:3474".to_string(),
                     },
-                    platform: DevicePlatformType::Thunder,
                     platform_parameters: {
                         let mut params = HashMap::new();
                         params.insert(
@@ -679,7 +883,6 @@ pub(crate) mod tests {
                         );
                         serde_json::to_value(params).unwrap()
                     },
-                    distribution_platform: "Generic".to_string(),
                     distribution_id_salt: None,
                     form_factor: "ipstb".to_string(),
                     default_values: DefaultValues {
@@ -722,6 +925,13 @@ pub(crate) mod tests {
                         allow_watch_history: false,
                         skip_restriction: "none".to_string(),
                         video_dimensions: vec![1920, 1080],
+                        // setting the value to true to simulate manifest override
+                        lifecycle_transition_validate: true,
+                        media_progress_as_watched_events: true,
+                        accessibility_audio_description_settings: false,
+                        role_based_support: false,
+                        country_postal_code: HashMap::new(),
+                        countries_using_us_privacy: Vec::new(),
                     },
                     settings_defaults_per_app: HashMap::new(),
                     model_friendly_names: {
@@ -750,7 +960,7 @@ pub(crate) mod tests {
                     metrics_logging_percentage: 10,
                 },
                 capabilities: CapabilityConfiguration {
-                    supported: vec!["main".to_string()],
+                    supported: vec!["main[manage]".to_string(), "test".to_string()],
                     grant_policies: None,
                     grant_exclusion_filters: vec![GrantExclusionFilter {
                         id: Some("test-id".to_string()),
@@ -770,7 +980,6 @@ pub(crate) mod tests {
                 applications: ApplicationsConfiguration {
                     distribution: DistributionConfiguration {
                         library: "/etc/firebolt-app-library.json".to_string(),
-                        catalog: "".to_string(),
                     },
                     defaults: ApplicationDefaultsConfiguration {
                         main: "".to_string(),
@@ -827,11 +1036,25 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_get_supported_caps() {
+    fn test_get_supported_caps_use_role_based_support_false() {
         let manifest = DeviceManifest::mock();
-        let supported_caps = manifest.get_supported_caps();
-
-        assert_eq!(supported_caps, vec![FireboltCap::Full("main".to_string())]);
+        let supported_perms = manifest.get_supported_caps();
+        assert!(supported_perms.contains(&FireboltPermission {
+            cap: FireboltCap::Full("main".to_owned()),
+            role: CapabilityRole::Manage
+        }));
+        assert!(supported_perms.contains(&FireboltPermission {
+            cap: FireboltCap::Full("test".to_owned()),
+            role: CapabilityRole::Manage
+        }));
+        assert!(supported_perms.contains(&FireboltPermission {
+            cap: FireboltCap::Full("test".to_owned()),
+            role: CapabilityRole::Use
+        }));
+        assert!(supported_perms.contains(&FireboltPermission {
+            cap: FireboltCap::Full("test".to_owned()),
+            role: CapabilityRole::Provide
+        }));
     }
 
     #[test]
@@ -937,7 +1160,6 @@ pub(crate) mod tests {
             ApplicationsConfiguration {
                 distribution: DistributionConfiguration {
                     library: "/etc/firebolt-app-library.json".to_string(),
-                    catalog: "".to_string(),
                 },
                 defaults: ApplicationDefaultsConfiguration {
                     main: "".to_string(),
@@ -976,5 +1198,100 @@ pub(crate) mod tests {
                 PrivacySettingsStorageType::Local
             ));
         }
+    }
+
+    #[test]
+    fn test_media_progress_as_watched_events() {
+        let manifest = DeviceManifest::mock();
+        assert!(
+            manifest
+                .configuration
+                .default_values
+                .media_progress_as_watched_events
+        );
+    }
+
+    #[test]
+    fn test_default_media_progress_as_watched_events() {
+        // create DefaultValues object by providing only the required fields
+        let default_values = serde_json::from_str::<DefaultValues>(
+            r#"{
+            "country_code": "US",
+            "language": "en",
+            "locale": "en-US",
+            "name": "Living Room"
+        }"#,
+        )
+        .unwrap();
+        assert!(!default_values.media_progress_as_watched_events);
+    }
+
+    #[test]
+    fn test_media_progress_as_watched_events_override() {
+        // create DefaultValues object by providing the required fields and mediaProgressAsWatchedEvents
+        let default_values = serde_json::from_str::<DefaultValues>(
+            r#"{
+            "country_code": "US",
+            "language": "en",
+            "locale": "en-US",
+            "name": "Living Room",
+            "mediaProgressAsWatchedEvents": true
+        }"#,
+        )
+        .unwrap();
+        assert!(default_values.media_progress_as_watched_events);
+    }
+
+    #[test]
+    fn test_lifecycle_transition_validate() {
+        let manifest = DeviceManifest::mock();
+        assert!(
+            manifest
+                .configuration
+                .default_values
+                .lifecycle_transition_validate
+        );
+    }
+
+    #[test]
+    fn test_default_lifecycle_transition_validate() {
+        // create DefaultValues object by providing only the required fields
+        let default_values = serde_json::from_str::<DefaultValues>(
+            r#"{
+            "country_code": "US",
+            "language": "en",
+            "locale": "en-US",
+            "name": "Living Room"
+        }"#,
+        )
+        .unwrap();
+        assert!(!default_values.lifecycle_transition_validate);
+    }
+
+    #[test]
+    fn test_lifecycle_transition_validate_override() {
+        // create DefaultValues object by providing the required fields and lifecycle_transition_validate
+        let default_values = serde_json::from_str::<DefaultValues>(
+            r#"{
+            "country_code": "US",
+            "language": "en",
+            "locale": "en-US",
+            "name": "Living Room",
+            "lifecycle_transition_validate": true
+        }"#,
+        )
+        .unwrap();
+        assert!(default_values.lifecycle_transition_validate);
+    }
+
+    #[test]
+    fn test_accessibility_audio_desc_settings_default_value() {
+        let manifest = DeviceManifest::mock();
+        assert!(
+            !manifest
+                .configuration
+                .default_values
+                .accessibility_audio_description_settings
+        );
     }
 }

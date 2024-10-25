@@ -24,7 +24,7 @@ use crate::{extn::extn_id::ExtnId, utils::error::RippleError};
 
 /// Contains the default path for the manifest
 /// file extension type based on platform
-#[derive(Deserialize, Debug, Clone, Default)]
+#[derive(Deserialize, Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct ExtnManifest {
     pub default_path: String,
@@ -32,7 +32,47 @@ pub struct ExtnManifest {
     pub extns: Vec<ExtnManifestEntry>,
     pub required_contracts: Vec<String>,
     pub rpc_aliases: HashMap<String, Vec<String>>,
+    #[serde(default)]
+    pub rpc_overrides: HashMap<String, String>,
     pub timeout: Option<u64>,
+    #[serde(default)]
+    pub rules_path: Vec<String>,
+    #[serde(default)]
+    pub extn_sdks: Vec<String>,
+    #[serde(default = "default_providers")]
+    pub provider_registrations: Vec<String>,
+}
+
+/// Some unit tests which use defaults are failing because we need default providers for unit testing
+impl Default for ExtnManifest {
+    fn default() -> Self {
+        Self {
+            default_path: String::default(),
+            default_extension: String::default(),
+            extns: Vec::new(),
+            required_contracts: Vec::new(),
+            rpc_aliases: HashMap::new(),
+            rpc_overrides: HashMap::new(),
+            timeout: None,
+            rules_path: Vec::new(),
+            extn_sdks: Vec::new(),
+            provider_registrations: default_providers(),
+        }
+    }
+}
+
+pub fn default_providers() -> Vec<String> {
+    let value = [
+        "AcknowledgeChallenge.",
+        "PinChallenge.",
+        "Discovery.userInterest",
+        "Discovery.onRequestUserInterest",
+        "Discovery.userInterestResponse",
+        "Content.requestUserInterest",
+        "Content.onUserInterest",
+        "IntegratedPlayer.",
+    ];
+    value.iter().map(|x| x.to_string()).collect()
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -165,6 +205,10 @@ impl ExtnManifest {
     pub fn get_timeout(&self) -> u64 {
         self.timeout.unwrap_or(10000)
     }
+
+    pub fn has_rpc_override_method(&self, method: &str) -> Option<String> {
+        self.rpc_overrides.get(method).cloned()
+    }
 }
 #[cfg(test)]
 mod tests {
@@ -186,7 +230,11 @@ mod tests {
                 extns: vec![],
                 required_contracts: vec![],
                 rpc_aliases: HashMap::new(),
+                rpc_overrides: HashMap::new(),
                 timeout: Some(5000),
+                rules_path: Vec::new(),
+                extn_sdks: Vec::new(),
+                provider_registrations: Vec::new(),
             }
         }
     }
@@ -244,14 +292,7 @@ mod tests {
             }
         "#;
 
-        let expected_manifest = ExtnManifest {
-            default_path: "".to_string(),
-            default_extension: "".to_string(),
-            extns: vec![],
-            required_contracts: vec![],
-            rpc_aliases: HashMap::new(),
-            timeout: None,
-        };
+        let expected_manifest = ExtnManifest::default();
 
         assert_eq!(
             ExtnManifest::load_from_content(contents.to_string()),

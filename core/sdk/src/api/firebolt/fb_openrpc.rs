@@ -19,6 +19,7 @@ use std::collections::{HashMap, HashSet};
 
 use log::{debug, warn};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use super::fb_capabilities::{
     CapRequestRpcRequest, CapabilityRole, DenyReason, DenyReasonWithCap, FireboltCap,
@@ -306,6 +307,8 @@ pub struct FireboltOpenRpcTag {
     pub manages: Option<Vec<String>>,
     #[serde(rename = "x-provides")]
     pub provides: Option<String>,
+    #[serde(rename = "x-provided-by")]
+    pub provided_by: Option<String>,
     #[serde(rename = "x-alternative")]
     pub alternative: Option<String>,
     #[serde(rename = "x-since")]
@@ -314,6 +317,18 @@ pub struct FireboltOpenRpcTag {
     pub allow_value: Option<bool>,
     #[serde(rename = "x-setter-for")]
     pub setter_for: Option<String>,
+    #[serde(rename = "x-response")]
+    pub response: Option<Value>,
+    #[serde(rename = "x-response-for")]
+    pub response_for: Option<String>,
+    #[serde(rename = "x-error")]
+    pub error: Option<Value>,
+    #[serde(rename = "x-error-for")]
+    pub error_for: Option<String>,
+    #[serde(rename = "x-allow-focus")]
+    pub allow_focus: Option<bool>,
+    #[serde(rename = "x-allow-focus-for")]
+    pub allow_focus_for: Option<String>,
 }
 
 impl FireboltOpenRpcTag {
@@ -331,7 +346,7 @@ impl FireboltOpenRpcTag {
         None
     }
 
-    fn get_provides(&self) -> Option<FireboltCap> {
+    pub fn get_provides(&self) -> Option<FireboltCap> {
         if let Some(caps) = self.provides.clone() {
             return Some(FireboltCap::Full(caps));
         }
@@ -785,6 +800,13 @@ mod tests {
             alternative: Some("cap6".to_string()),
             since: Some("1.0.0".to_string()),
             setter_for: Some("example_property".to_string()),
+            response: None,
+            response_for: None,
+            error: None,
+            error_for: None,
+            allow_focus: None,
+            allow_focus_for: None,
+            provided_by: None,
         };
 
         assert_eq!(
@@ -822,6 +844,13 @@ mod tests {
                 alternative: Some("cap6".to_string()),
                 since: Some("1.0.0".to_string()),
                 setter_for: Some("example_property".to_string()),
+                response: None,
+                response_for: None,
+                error: None,
+                error_for: None,
+                allow_focus: None,
+                allow_focus_for: None,
+                provided_by: None,
             }]),
         };
 
@@ -836,6 +865,13 @@ mod tests {
             alternative: Some("cap6".to_string()),
             since: Some("1.0.0".to_string()),
             setter_for: Some("example_property".to_string()),
+            response: None,
+            response_for: None,
+            error: None,
+            error_for: None,
+            allow_focus: None,
+            allow_focus_for: None,
+            provided_by: None,
         }]);
 
         assert_eq!(method.get_allow_value(), None);

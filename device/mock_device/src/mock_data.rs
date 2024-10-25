@@ -46,6 +46,7 @@ impl ParamResponse {
     pub fn get_key(&self, key: &Value) -> Option<Self> {
         match &self.params {
             Some(v) => {
+                debug!("get_key check {:?}={:?}", v, key);
                 if v.eq(key) {
                     return Some(self.clone());
                 }
@@ -78,7 +79,7 @@ impl ParamResponse {
         if let Some(e) = self.error.clone() {
             sink_responses.push(ResponseSink {
                 delay: 0,
-                data: json!({"jsonrpc": "2.0", "id": id, "error": [e]}),
+                data: json!({"jsonrpc": "2.0", "id": id, "error": e}),
             });
         } else if let Some(v) = self.result.clone() {
             sink_responses.push(ResponseSink {
@@ -272,8 +273,6 @@ mod tests {
             .data
             .get("error")
             .unwrap()
-            .as_array()
-            .unwrap()[0]
             .get("code")
             .unwrap()
             .as_i64()

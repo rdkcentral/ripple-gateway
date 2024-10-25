@@ -15,7 +15,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, env, time::Duration};
 
 use crate::{
     firebolt::rpc::RippleRPCProvider,
@@ -45,11 +45,7 @@ use ripple_sdk::{
                 AudioProfile, DeviceVersionResponse, HdcpProfile, HdrProfile, NetworkResponse,
             },
         },
-        distributor::distributor_encoder::EncoderRequest,
-        firebolt::{
-            fb_general::{ListenRequest, ListenerResponse},
-            fb_openrpc::FireboltSemanticVersion,
-        },
+        firebolt::fb_general::{ListenRequest, ListenerResponse},
         gateway::rpc_gateway_api::CallContext,
         session::{AccountSessionRequest, ProvisionRequest},
         storage_property::{
@@ -62,6 +58,8 @@ use ripple_sdk::{
 };
 
 include!(concat!(env!("OUT_DIR"), "/version.rs"));
+
+const KEY_FIREBOLT_DEVICE_UID: &str = "fireboltDeviceUid";
 
 // #[derive(Serialize, Clone, Debug, Deserialize)]
 // #[serde(rename_all = "camelCase")]
@@ -192,30 +190,6 @@ pub async fn get_device_id(state: &PlatformState) -> RpcResult<String> {
     }
 }
 
-pub async fn get_uid(state: &PlatformState, app_id: String) -> RpcResult<String> {
-    if let Ok(device_id) = get_device_id(state).await {
-        if state.supports_encoding() {
-            if let Ok(resp) = state
-                .get_client()
-                .send_extn_request(EncoderRequest {
-                    reference: device_id.clone(),
-                    scope: app_id,
-                })
-                .await
-            {
-                if let Some(ExtnResponse::String(enc_device_id)) =
-                    resp.payload.extract::<ExtnResponse>()
-                {
-                    return Ok(enc_device_id);
-                }
-            }
-        }
-        Ok(device_id)
-    } else {
-        Err(rpc_err("parse error"))
-    }
-}
-
 pub async fn get_ll_mac_addr(state: PlatformState) -> RpcResult<String> {
     let resp = state
         .get_client()
@@ -304,7 +278,7 @@ impl DeviceServer for DeviceImpl {
     }
 
     async fn uid(&self, ctx: CallContext) -> RpcResult<String> {
-        get_uid(&self.state, ctx.app_id).await
+        crate::utils::common::get_uid(&self.state, ctx.app_id, KEY_FIREBOLT_DEVICE_UID).await
     }
 
     async fn platform(&self, _ctx: CallContext) -> RpcResult<String> {
@@ -312,15 +286,6 @@ impl DeviceServer for DeviceImpl {
     }
 
     async fn version(&self, ctx: CallContext) -> RpcResult<DeviceVersionResponse> {
-        let mut os = FireboltSemanticVersion::new(
-            env!("CARGO_PKG_VERSION_MAJOR").parse().unwrap(),
-            env!("CARGO_PKG_VERSION_MINOR").parse().unwrap(),
-            env!("CARGO_PKG_VERSION_PATCH").parse().unwrap(),
-            "".to_string(),
-        );
-
-        os.readable = format!("Firebolt OS v{}", env!("CARGO_PKG_VERSION"));
-
         let firmware_info = self.firmware_info(ctx).await?;
         let open_rpc_state = self.state.clone().open_rpc_state;
         let api = open_rpc_state.get_open_rpc().info;
@@ -332,14 +297,11 @@ impl DeviceServer for DeviceImpl {
             api,
             firmware: firmware_info.version,
             os: os_ver,
-            debug: format!(
-                "{} ({})",
-                env!("CARGO_PKG_VERSION"),
-                self.state
-                    .version
-                    .clone()
-                    .unwrap_or(String::from(SEMVER_LIGHTWEIGHT))
-            ),
+            debug: self
+                .state
+                .version
+                .clone()
+                .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string()),
         })
     }
 
@@ -442,7 +404,10 @@ impl DeviceServer for DeviceImpl {
 
         match resp {
             Ok(response) => match response.payload.extract().unwrap() {
-                DeviceResponse::HdrResponse(value) => Ok(value),
+                DeviceResponse::HdrResponse(value) => Ok(value
+                    .into_iter()
+                    .filter(|&(p, _)| p != HdrProfile::Technicolor)
+                    .collect()),
                 _ => Err(jsonrpsee::core::Error::Custom(String::from(
                     "Hdr capabilities error response TBD",
                 ))),

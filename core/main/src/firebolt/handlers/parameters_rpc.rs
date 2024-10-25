@@ -39,6 +39,7 @@ use super::privacy_rpc;
 
 #[derive(Serialize, Debug, Clone)]
 pub struct AppInitParameters {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub us_privacy: Option<String>,
     pub lmt: Option<u16>,
     pub discovery: Option<DiscoveryEvent>,
@@ -84,6 +85,7 @@ impl ParametersServer for ParametersImpl {
             &self.platform_state,
             None,
             &ctx.app_id.to_string(),
+            &ctx,
         )
         .await;
 

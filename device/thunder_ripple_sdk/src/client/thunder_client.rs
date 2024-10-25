@@ -279,12 +279,15 @@ impl ThunderClient {
         let subscription_res = client
             .subscribe_to_method::<Value>(subscribe_method.as_str())
             .await;
-        if let Err(e) = subscription_res {
-            error!("Failed to setup subscriber in jsonrpsee client, {}", e);
-            // Maybe this method signature should change to propagate the error up
-            return;
-        }
-        let mut subscription = subscription_res.unwrap();
+
+        let mut subscription = match subscription_res {
+            Ok(subscription) => subscription,
+            Err(e) => {
+                error!("Failed to setup subscriber in jsonrpsee client, {}", e);
+                // Maybe this method signature should change to propagate the error up
+                return;
+            }
+        };
         let params = ThunderRegisterParams {
             event: thunder_message.event_name.clone(),
             id: format!("client.{}.events", thunder_message.module.clone()),
@@ -674,9 +677,15 @@ pub struct ThunderRawBoolRequest {
 
 impl ThunderRawBoolRequest {
     async fn send_request(self: Box<Self>) -> Value {
-        let host = match env::var("THUNDER_HOST") {
-            Ok(h) => h,
-            Err(_) => String::from("127.0.0.1"),
+        let host = {
+            if cfg!(feature = "local_dev") {
+                match env::var("DEVICE_HOST") {
+                    Ok(h) => h,
+                    Err(_) => String::from("127.0.0.1"),
+                }
+            } else {
+                String::from("127.0.0.1")
+            }
         };
 
         if let Ok(t) = env::var("THUNDER_TOKEN") {

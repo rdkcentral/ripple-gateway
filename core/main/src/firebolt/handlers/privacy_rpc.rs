@@ -18,8 +18,8 @@
 use crate::processor::storage::storage_manager::StorageManager;
 use crate::service::apps::app_events::AppEventDecorator;
 use crate::{
-    firebolt::rpc::RippleRPCProvider, processor::storage::storage_manager::StorageManagerError,
-    service::apps::app_events::AppEvents, state::platform_state::PlatformState,
+    firebolt::rpc::RippleRPCProvider, service::apps::app_events::AppEvents,
+    state::platform_state::PlatformState,
 };
 use jsonrpsee::{
     core::{async_trait, RpcResult},
@@ -27,21 +27,19 @@ use jsonrpsee::{
     types::error::CallError,
     RpcModule,
 };
-use ripple_sdk::api::distributor::distributor_privacy::PrivacySettingsStoreRequest;
-use ripple_sdk::api::firebolt::fb_capabilities::FireboltCap;
-use ripple_sdk::extn::extn_client_message::ExtnPayload;
+use ripple_sdk::api::gateway::rpc_gateway_api::RpcStats;
 use ripple_sdk::{
     api::{
         device::device_peristence::SetBoolProperty,
         distributor::distributor_privacy::{
             ContentListenRequest, GetPropertyParams, PrivacyCloudRequest, PrivacySettings,
-            SetPropertyParams,
+            PrivacySettingsStoreRequest, SetPropertyParams,
         },
         firebolt::{
-            fb_capabilities::{CapabilityRole, RoleInfo, CAPABILITY_NOT_AVAILABLE},
+            fb_capabilities::{CapabilityRole, FireboltCap, RoleInfo, CAPABILITY_NOT_AVAILABLE},
             fb_general::{ListenRequest, ListenerResponse},
         },
-        gateway::rpc_gateway_api::CallContext,
+        gateway::rpc_gateway_api::{ApiProtocol, CallContext, RpcRequest},
         storage_property::{
             StorageProperty, EVENT_ALLOW_ACR_COLLECTION_CHANGED,
             EVENT_ALLOW_APP_CONTENT_AD_TARGETING_CHANGED, EVENT_ALLOW_CAMERA_ANALYTICS_CHANGED,
@@ -52,15 +50,15 @@ use ripple_sdk::{
             EVENT_ALLOW_UNENTITLED_RESUME_POINTS_CHANGED, EVENT_ALLOW_WATCH_HISTORY_CHANGED,
         },
     },
+    extn::extn_client_message::ExtnPayload,
     extn::extn_client_message::ExtnResponse,
     log::debug,
-    serde_json::json,
+    serde_json::{from_value, json},
 };
-
-use std::collections::HashMap;
 
 use super::advertising_rpc::ScopeOption;
 use super::capabilities_rpc::is_granted;
+use std::collections::HashMap;
 
 pub const US_PRIVACY_KEY: &str = "us_privacy";
 pub const LMT_KEY: &str = "lmt";
@@ -83,13 +81,61 @@ impl AllowAppContentAdTargetingSettings {
         }
     }
 
-    pub fn get_allow_app_content_ad_targeting_settings(&self) -> HashMap<String, String> {
-        HashMap::from([
-            (US_PRIVACY_KEY.to_owned(), self.us_privacy.to_owned()),
-            (LMT_KEY.to_owned(), self.lmt.to_owned()),
-        ])
+    pub async fn get_allow_app_content_ad_targeting_settings(
+        &self,
+        platform_state: &PlatformState,
+        ctx: &CallContext,
+    ) -> HashMap<String, String> {
+        let mut new_ctx = ctx.clone();
+        new_ctx.protocol = ApiProtocol::Extn;
+
+        let rpc_request = RpcRequest {
+            ctx: new_ctx.clone(),
+            method: "localization.countryCode".into(),
+            params_json: RpcRequest::prepend_ctx(None, &new_ctx),
+            stats: RpcStats::default(),
+        };
+
+        let resp = platform_state
+            .get_client()
+            .get_extn_client()
+            .main_internal_request(rpc_request.clone())
+            .await;
+
+        let country_code = if let Ok(res) = resp.clone() {
+            if let Some(ExtnResponse::Value(val)) = res.payload.extract::<ExtnResponse>() {
+                match from_value::<String>(val) {
+                    Ok(v) => v,
+                    Err(_) => "US".to_owned(),
+                }
+            } else {
+                "US".to_owned()
+            }
+        } else {
+            "US".to_owned()
+        };
+
+        [
+            (country_code == "US"
+                || Self::allow_using_us_privacy(platform_state.clone(), &country_code.to_string()))
+            .then(|| (US_PRIVACY_KEY.to_owned(), self.us_privacy.to_owned())),
+            Some((LMT_KEY.to_owned(), self.lmt.to_owned())),
+        ]
+        .into_iter()
+        .flatten()
+        .collect()
+    }
+
+    fn allow_using_us_privacy(state: PlatformState, country_code: &String) -> bool {
+        let countries_using_us_privacy = state
+            .get_device_manifest()
+            .configuration
+            .default_values
+            .countries_using_us_privacy;
+        countries_using_us_privacy.contains(country_code)
     }
 }
+
 impl Default for AllowAppContentAdTargetingSettings {
     fn default() -> Self {
         Self {
@@ -277,8 +323,9 @@ pub async fn get_allow_app_content_ad_targeting_settings(
     platform_state: &PlatformState,
     scope_option: Option<&ScopeOption>,
     caller_app: &String,
+    ctx: &CallContext,
 ) -> HashMap<String, String> {
-    let mut data = StorageProperty::AllowAppContentAdTargeting.as_data();
+    let mut data = StorageProperty::AllowAppContentAdTargeting;
     if let Some(scope_opt) = scope_option {
         if let Some(scope) = &scope_opt.scope {
             let primary_app = platform_state
@@ -288,27 +335,21 @@ pub async fn get_allow_app_content_ad_targeting_settings(
                 .main;
             if primary_app == *caller_app.to_string() {
                 if scope._type.as_string() == "browse" {
-                    data = StorageProperty::AllowPrimaryBrowseAdTargeting.as_data();
+                    data = StorageProperty::AllowPrimaryBrowseAdTargeting;
                 } else if scope._type.as_string() == "content" {
-                    data = StorageProperty::AllowPrimaryContentAdTargeting.as_data();
+                    data = StorageProperty::AllowPrimaryContentAdTargeting;
                 }
             }
         }
     }
-    match StorageManager::get_bool_from_namespace(
-        platform_state,
-        data.namespace.to_string(),
-        data.key,
+
+    AllowAppContentAdTargetingSettings::new(
+        StorageManager::get_bool(platform_state, data)
+            .await
+            .unwrap_or(true),
     )
+    .get_allow_app_content_ad_targeting_settings(platform_state, ctx)
     .await
-    {
-        Ok(resp) => AllowAppContentAdTargetingSettings::new(resp.as_value())
-            .get_allow_app_content_ad_targeting_settings(),
-        Err(StorageManagerError::NotFound) => AllowAppContentAdTargetingSettings::default()
-            .get_allow_app_content_ad_targeting_settings(),
-        _ => AllowAppContentAdTargetingSettings::new(true)
-            .get_allow_app_content_ad_targeting_settings(),
-    }
 }
 
 #[derive(Debug)]
@@ -532,8 +573,16 @@ impl PrivacyImpl {
             }
             PrivacySettingsStorageType::Cloud => {
                 if let Some(dist_session) = platform_state.session_state.get_account_session() {
+                    let setting = match property.as_privacy_setting() {
+                        Some(s) => s,
+                        None => {
+                            return Err(jsonrpsee::core::Error::Custom(
+                                "Property is not a privacy setting".to_owned(),
+                            ))
+                        }
+                    };
                     let request = PrivacyCloudRequest::GetProperty(GetPropertyParams {
-                        setting: property.as_privacy_setting().unwrap(),
+                        setting,
                         dist_session,
                     });
                     if let Ok(resp) = platform_state.get_client().send_extn_request(request).await {

@@ -35,6 +35,7 @@ use ripple_sdk::{
 use std::collections::HashMap;
 
 use crate::{
+    broker::{endpoint_broker::EndpointBrokerState, rules_engine::RuleEngine},
     firebolt::rpc_router::RouterState,
     service::{
         apps::{
@@ -48,7 +49,7 @@ use crate::{
 
 use super::{
     cap::cap_state::CapState, metrics_state::MetricsState, openrpc_state::OpenRpcState,
-    session_state::SessionState,
+    ripple_cache::RippleCache, session_state::SessionState,
 };
 
 /// Platform state encapsulates the internal state of the Ripple Main application.
@@ -74,8 +75,8 @@ impl Default for DeviceSessionIdentifier {
         }
     }
 }
-impl From<&DeviceSessionIdentifier> for String {
-    fn from(device_session_identifier: &DeviceSessionIdentifier) -> Self {
+impl From<DeviceSessionIdentifier> for String {
+    fn from(device_session_identifier: DeviceSessionIdentifier) -> Self {
         device_session_identifier.device_session_id.to_string()
     }
 }
@@ -103,7 +104,9 @@ pub struct PlatformState {
     pub data_governance: DataGovernanceState,
     pub metrics: MetricsState,
     pub device_session_id: DeviceSessionIdentifier,
+    pub ripple_cache: RippleCache,
     pub version: Option<String>,
+    pub endpoint_state: EndpointBrokerState,
 }
 
 impl PlatformState {
@@ -115,22 +118,28 @@ impl PlatformState {
         version: Option<String>,
     ) -> PlatformState {
         let exclusory = ExclusoryImpl::get(&manifest);
+        let broker_sender = client.get_broker_sender();
+        let rule_engine = RuleEngine::build(&extn_manifest);
+        let extn_sdks = extn_manifest.extn_sdks.clone();
+        let provider_registations = extn_manifest.provider_registrations.clone();
         Self {
             extn_manifest,
             cap_state: CapState::new(manifest.clone()),
             session_state: SessionState::default(),
             device_manifest: manifest.clone(),
-            ripple_client: client,
+            ripple_client: client.clone(),
             app_library_state: AppLibraryState::new(app_library),
             app_events_state: AppEventsState::default(),
             provider_broker_state: ProviderBrokerState::default(),
             app_manager_state: AppManagerState::new(&manifest.configuration.saved_dir),
-            open_rpc_state: OpenRpcState::new(Some(exclusory)),
+            open_rpc_state: OpenRpcState::new(Some(exclusory), extn_sdks, provider_registations),
             router_state: RouterState::new(),
             data_governance: DataGovernanceState::default(),
             metrics: MetricsState::default(),
             device_session_id: DeviceSessionIdentifier::default(),
+            ripple_cache: RippleCache::default(),
             version,
+            endpoint_state: EndpointBrokerState::new(broker_sender, rule_engine, client),
         }
     }
 
@@ -216,6 +225,7 @@ impl PlatformState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ripple_sdk::api::manifest::extn_manifest::default_providers;
     use ripple_tdk::utils::test_utils::Mockable;
 
     impl Mockable for PlatformState {
@@ -227,12 +237,12 @@ mod tests {
                     .to_string(),
             )
             .unwrap();
-            let (_, extn_manifest) = ExtnManifest::load_from_content(
+            let (_, mut extn_manifest) = ExtnManifest::load_from_content(
                 include_str!("../../../../examples/manifest/extn-manifest-example.json")
                     .to_string(),
             )
             .unwrap();
-
+            extn_manifest.provider_registrations = default_providers();
             Self::new(
                 extn_manifest,
                 manifest,

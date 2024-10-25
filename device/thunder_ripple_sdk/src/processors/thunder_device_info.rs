@@ -96,6 +96,7 @@ pub mod hdr_flags {
     pub const HDRSTANDARD_HLG: u32 = 0x02;
     pub const HDRSTANDARD_DOLBY_VISION: u32 = 0x04;
     pub const HDRSTANDARD_TECHNICOLOR_PRIME: u32 = 0x08;
+    pub const HDRSTANDARD_HDR10PLUS: u32 = 0x10;
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -147,7 +148,6 @@ pub struct CachedDeviceInfo {
     model: Option<String>,
     make: Option<String>,
     hdcp_support: Option<HashMap<HdcpProfile, bool>>,
-    hdcp_status: Option<HDCPStatus>,
     hdr_profile: Option<HashMap<HdrProfile, bool>>,
     version: Option<FireboltSemanticVersion>,
 }
@@ -181,15 +181,6 @@ impl CachedState {
     fn update_hdcp_support(&self, value: HashMap<HdcpProfile, bool>) {
         let mut hdcp = self.cached.write().unwrap();
         let _ = hdcp.hdcp_support.insert(value);
-    }
-
-    fn get_hdcp_status(&self) -> Option<HDCPStatus> {
-        self.cached.read().unwrap().hdcp_status.clone()
-    }
-
-    fn update_hdcp_status(&self, value: HDCPStatus) {
-        let mut hdcp = self.cached.write().unwrap();
-        let _ = hdcp.hdcp_status.insert(value);
     }
 
     fn get_hdr(&self) -> Option<HashMap<HdrProfile, bool>> {
@@ -446,9 +437,8 @@ impl ThunderDeviceInfoRequestProcessor {
     }
 
     async fn get_serial_number(state: &CachedState) -> String {
-        let response: String;
         match state.get_serial_number() {
-            Some(value) => response = value,
+            Some(value) => value,
             None => {
                 let resp = state
                     .get_thunder_client()
@@ -459,16 +449,16 @@ impl ThunderDeviceInfoRequestProcessor {
                     .await;
                 info!("{}", resp.message);
 
-                let serial_number_option = resp.message["serialNumber"].as_str();
-                if serial_number_option.is_none() {
-                    response = "".to_string();
-                } else {
-                    response = serial_number_option.unwrap().to_string();
-                    state.update_serial_number(response.clone())
-                }
+                resp.message["serialNumber"].as_str().map_or_else(
+                    || "".to_string(),
+                    |serial_number| {
+                        let serial_number = serial_number.to_string();
+                        state.update_serial_number(serial_number.clone());
+                        serial_number
+                    },
+                )
             }
         }
-        response
     }
 
     async fn serial_number(state: CachedState, req: ExtnMessage) -> bool {
@@ -721,22 +711,16 @@ impl ThunderDeviceInfoRequestProcessor {
 
     async fn get_hdcp_status(state: &CachedState) -> HDCPStatus {
         let mut response: HDCPStatus = HDCPStatus::default();
-        match state.get_hdcp_status() {
-            Some(status) => response = status,
-            None => {
-                let resp = state
-                    .get_thunder_client()
-                    .call(DeviceCallRequest {
-                        method: ThunderPlugin::Hdcp.method("getHDCPStatus"),
-                        params: None,
-                    })
-                    .await;
-                info!("{}", resp.message);
-                if let Ok(thdcp) = serde_json::from_value::<ThunderHDCPStatus>(resp.message) {
-                    response = thdcp.hdcp_status;
-                    state.update_hdcp_status(response.clone());
-                }
-            }
+        let resp = state
+            .get_thunder_client()
+            .call(DeviceCallRequest {
+                method: ThunderPlugin::Hdcp.method("getHDCPStatus"),
+                params: None,
+            })
+            .await;
+        info!("{}", resp.message);
+        if let Ok(thdcp) = serde_json::from_value::<ThunderHDCPStatus>(resp.message) {
+            response = thdcp.hdcp_status;
         }
         response
     }
@@ -798,6 +782,10 @@ impl ThunderDeviceInfoRequestProcessor {
         hm.insert(
             HdrProfile::Technicolor,
             0 != (supported_cap & hdr_flags::HDRSTANDARD_TECHNICOLOR_PRIME),
+        );
+        hm.insert(
+            HdrProfile::Hdr10plus,
+            0 != (supported_cap & hdr_flags::HDRSTANDARD_HDR10PLUS),
         );
         hm
     }
@@ -1123,24 +1111,30 @@ impl ThunderDeviceInfoRequestProcessor {
                 )
                 .await
                 .is_ok();
-            } else if let Some(tz) = Self::get_timezone_and_offset(&state).await {
-                let cloned_state = state.clone();
-                let cloned_tz = tz.clone();
-                cloned_state
-                    .get_client()
-                    .context_update(RippleContextUpdateRequest::TimeZone(TimeZone {
-                        time_zone: cloned_tz.time_zone,
-                        offset: cloned_tz.offset,
-                    }));
-                return Self::respond(
-                    state.get_client(),
-                    req,
-                    ExtnResponse::TimezoneWithOffset(tz.time_zone, tz.offset),
-                )
-                .await
-                .is_ok();
             }
         }
+
+        // If timezone or offset is None or empty
+        if let Some(tz) = Self::get_timezone_and_offset(&state).await {
+            let cloned_state = state.clone();
+            let cloned_tz = tz.clone();
+
+            cloned_state
+                .get_client()
+                .context_update(RippleContextUpdateRequest::TimeZone(TimeZone {
+                    time_zone: cloned_tz.time_zone,
+                    offset: cloned_tz.offset,
+                }));
+
+            return Self::respond(
+                state.get_client(),
+                req,
+                ExtnResponse::TimezoneWithOffset(tz.time_zone, tz.offset),
+            )
+            .await
+            .is_ok();
+        }
+
         error!("get_timezone_offset: Unsupported timezone");
         Self::handle_error(state.get_client(), req, RippleError::ProcessorError).await
     }

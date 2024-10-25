@@ -63,10 +63,12 @@ impl AuthenticationServer for AuthenticationImpl {
         match token_request._type {
             TokenType::Platform => {
                 let cap = FireboltCap::Short("token:platform".into());
-                let supported_caps = self
+                let supported_perms = self
                     .platform_state
                     .get_device_manifest()
                     .get_supported_caps();
+                let supported_caps: Vec<FireboltCap> =
+                    supported_perms.into_iter().map(|x| x.cap).collect();
                 if supported_caps.contains(&cap) {
                     self.token(TokenType::Platform, ctx).await
                 } else {
@@ -77,14 +79,17 @@ impl AuthenticationServer for AuthenticationImpl {
                     }));
                 }
             }
-            TokenType::Root => self.token(TokenType::Root, ctx).await,
+            TokenType::Root => self.get_root_token().await,
             TokenType::Device => self.token(TokenType::Device, ctx).await,
             TokenType::Distributor => {
                 let cap = FireboltCap::Short("token:session".into());
-                let supported_caps = self
+                let supported_perms = self
                     .platform_state
                     .get_device_manifest()
                     .get_supported_caps();
+
+                let supported_caps: Vec<FireboltCap> =
+                    supported_perms.into_iter().map(|x| x.cap).collect();
                 if supported_caps.contains(&cap) {
                     self.token(TokenType::Distributor, ctx).await
                 } else {
@@ -98,8 +103,8 @@ impl AuthenticationServer for AuthenticationImpl {
         }
     }
 
-    async fn root(&self, ctx: CallContext) -> RpcResult<String> {
-        match self.token(TokenType::Root, ctx).await {
+    async fn root(&self, _ctx: CallContext) -> RpcResult<String> {
+        match self.get_root_token().await {
             Ok(r) => Ok(r.value),
             Err(e) => Err(e),
         }
@@ -164,7 +169,7 @@ impl AuthenticationImpl {
                 let context = PlatformTokenContext {
                     app_id: ctx.app_id,
                     content_provider: cp_id,
-                    device_session_id: (&self.platform_state.device_session_id).into(),
+                    device_session_id: self.platform_state.device_session_id.clone().into(),
                     app_session_id: ctx.session_id.clone(),
                     dist_session,
                 };
@@ -201,6 +206,41 @@ impl AuthenticationImpl {
                     .await
             }
         };
+        match resp {
+            Ok(payload) => match payload.payload.extract().unwrap() {
+                ExtnResponse::Token(t) => Ok(TokenResult {
+                    value: t.value,
+                    expires: t.expires,
+                    _type: token_type,
+                    scope: None,
+                    expires_in: None,
+                    token_type: None,
+                }),
+                e => Err(jsonrpsee::core::Error::Custom(format!(
+                    "unknown error getting {:?} token {:?}",
+                    token_type, e
+                ))),
+            },
+
+            Err(_e) => Err(jsonrpsee::core::Error::Custom(format!(
+                "Ripple Error getting {:?} token",
+                token_type
+            ))),
+        }
+    }
+
+    async fn get_root_token(&self) -> RpcResult<TokenResult> {
+        let token_type = TokenType::Root;
+        let resp = self
+            .platform_state
+            .get_client()
+            .send_extn_request(SessionTokenRequest {
+                token_type,
+                options: Vec::new(),
+                context: None,
+            })
+            .await;
+
         match resp {
             Ok(payload) => match payload.payload.extract().unwrap() {
                 ExtnResponse::Token(t) => Ok(TokenResult {

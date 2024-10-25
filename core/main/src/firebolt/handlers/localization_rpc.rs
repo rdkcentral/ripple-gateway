@@ -193,8 +193,13 @@ impl LocalizationImpl {
         match StorageManager::get_string(state, StorageProperty::PostalCode).await {
             Ok(resp) => Some(resp),
             Err(_) => {
-                match StorageManager::get_string_from_namespace(state, app_id, KEY_POSTAL_CODE)
-                    .await
+                match StorageManager::get_string_from_namespace(
+                    state,
+                    app_id,
+                    KEY_POSTAL_CODE,
+                    None,
+                )
+                .await
                 {
                     Ok(resp) => Some(resp.as_value()),
                     Err(_) => None,
@@ -216,7 +221,7 @@ impl LocalizationImpl {
             // TODO update with Firebolt Cap in later effort
             "xrn:firebolt:capability:localization:locale".into(),
             method.into(),
-            event_name,
+            String::from(event_name),
             ctx,
             request,
         )
@@ -498,18 +503,21 @@ impl LocalizationServer for LocalizationImpl {
         _ctx: CallContext,
         set_request: TimezoneProperty,
     ) -> RpcResult<()> {
-        let resp = self
+        let resp = match self
             .platform_state
             .get_client()
             .send_extn_request(DeviceInfoRequest::GetAvailableTimezones)
-            .await;
-
-        if let Err(_e) = resp {
-            return Err(jsonrpsee::core::Error::Custom(String::from(
-                "timezone_set: error response TBD",
-            )));
-        }
-        if let Some(ExtnResponse::AvailableTimezones(timezones)) = resp.unwrap().payload.extract() {
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                error!("timezone_set: error response TBD: {:?}", e);
+                return Err(jsonrpsee::core::Error::Custom(String::from(
+                    "timezone_set: error response TBD",
+                )));
+            }
+        };
+        if let Some(ExtnResponse::AvailableTimezones(timezones)) = resp.payload.extract() {
             if !timezones.contains(&set_request.value) {
                 error!(
                     "timezone_set: Unsupported timezone: tz={}",

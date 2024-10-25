@@ -2,7 +2,7 @@ use std::{collections::HashMap, fs};
 
 use jsonschema::JSONSchema;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 
 pub extern crate jsonschema;
 
@@ -24,12 +24,61 @@ impl FireboltOpenRpc {
         serde_json::from_str(&data).expect("JSON does not have correct format.")
     }
 
-    #[allow(dead_code)]
     pub fn get_method_by_name(&self, name: &str) -> Option<RpcMethod> {
         for spec in self.apis.values() {
             for m in &spec.methods {
-                if m.name == name {
+                if m.name.to_ascii_lowercase() == name.to_ascii_lowercase() {
                     return Some(m.clone());
+                }
+            }
+        }
+        None
+    }
+
+    fn get_result_ref_schemas(
+        &self,
+        result_schema_map: &Map<String, Value>,
+    ) -> Option<Map<String, Value>> {
+        if let Some(result_schema_value) = result_schema_map.get("$ref") {
+            if let Some(result_schema_string) = result_schema_value.as_str() {
+                let result_type_string = result_schema_string.split('/').last().unwrap();
+                for spec in self.apis.values() {
+                    if let Value::Object(components) = &spec.components {
+                        if let Some(Value::Object(schemas_map)) = components.get("schemas") {
+                            if let Some(result_type_value) = schemas_map.get(result_type_string) {
+                                if let Some(result_type_map) = result_type_value.as_object() {
+                                    if let Some(Value::Object(result_properties_map)) =
+                                        result_type_map.get("properties")
+                                    {
+                                        return Some(result_properties_map.clone());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    pub fn get_result_properties_schema_by_name(&self, name: &str) -> Option<Map<String, Value>> {
+        if let Some(method) = self.get_method_by_name(name) {
+            if let Some(result_schema_map) = method.result.schema.as_object() {
+                if let Some(any_of_map) = result_schema_map.get("anyOf") {
+                    if let Some(any_of_array) = any_of_map.as_array() {
+                        for value in any_of_array.iter() {
+                            if let Some(result_properties_map) =
+                                self.get_result_ref_schemas(value.as_object().unwrap())
+                            {
+                                return Some(result_properties_map);
+                            }
+                        }
+                    } else {
+                        return None;
+                    }
+                } else {
+                    return self.get_result_ref_schemas(result_schema_map);
                 }
             }
         }
@@ -39,11 +88,11 @@ impl FireboltOpenRpc {
     pub fn params_validator(
         &self,
         version: String,
-        request: &JsonRpcRequest,
+        method: &str,
     ) -> Result<JSONSchema, ValidationError> {
         if let Some(spec) = self.apis.get(&version) {
             let open_rpc_spec: OpenRpcSpec = spec.clone().into();
-            open_rpc_spec.params_validator(request)
+            open_rpc_spec.params_validator(method)
         } else {
             Err(ValidationError::SpecVersionNotFound)
         }
@@ -56,7 +105,7 @@ impl FireboltOpenRpc {
     ) -> Result<JSONSchema, ValidationError> {
         if let Some(spec) = self.apis.get(&version) {
             let open_rpc_spec: OpenRpcSpec = spec.clone().into();
-            open_rpc_spec.result_validator(method)
+            open_rpc_spec.result_validator(&method)
         } else {
             Err(ValidationError::SpecVersionNotFound)
         }
@@ -81,8 +130,13 @@ impl From<FireboltOpenRpcSpec> for OpenRpcSpec {
         let mut additional_schemas = HashMap::default();
         additional_schemas.insert(String::from("components"), value.components);
         additional_schemas.insert(String::from("x-schemas"), value.x_schemas);
+        let methods = value
+            .methods
+            .iter()
+            .map(|x| (x.name.to_lowercase(), x.clone()))
+            .collect();
         OpenRpcSpec {
-            methods: value.methods,
+            methods,
             additional_schemas,
         }
     }
@@ -90,26 +144,21 @@ impl From<FireboltOpenRpcSpec> for OpenRpcSpec {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct OpenRpcSpec {
-    pub methods: Vec<RpcMethod>,
+    pub methods: HashMap<String, RpcMethod>,
     pub additional_schemas: HashMap<String, Value>,
 }
 
 impl OpenRpcSpec {
-    pub fn params_validator(
-        &self,
-        request: &JsonRpcRequest,
-    ) -> Result<JSONSchema, ValidationError> {
-        let method = self.methods.iter().find(|m| m.name == request.method);
-        if let Some(m) = method {
+    pub fn params_validator(&self, method: &str) -> Result<JSONSchema, ValidationError> {
+        if let Some(m) = self.methods.get(method.to_lowercase().as_str()) {
             m.params_validator(self.additional_schemas.clone())
         } else {
             Err(ValidationError::MethodNotFound)
         }
     }
 
-    pub fn result_validator(&self, method: String) -> Result<JSONSchema, ValidationError> {
-        let rpc_method = self.methods.iter().find(|m| m.name == method);
-        if let Some(m) = rpc_method {
+    pub fn result_validator(&self, method: &str) -> Result<JSONSchema, ValidationError> {
+        if let Some(m) = self.methods.get(method.to_lowercase().as_str()) {
             m.result_validator(self.additional_schemas.clone())
         } else {
             Err(ValidationError::MethodNotFound)
@@ -122,7 +171,7 @@ pub struct RpcMethod {
     pub name: String,
     pub params: Vec<RpcParam>,
     pub result: RpcResult,
-    pub examples: Vec<MethodExample>,
+    pub examples: Option<Vec<MethodExample>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -209,7 +258,7 @@ pub struct RpcParam {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RpcResult {
     name: String,
-    schema: Value,
+    pub schema: Value,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -273,22 +322,28 @@ pub mod tests {
         for spec in rpc.apis.values() {
             let open_rpc_spec: OpenRpcSpec = spec.clone().into();
             for method in &spec.methods {
-                for ex in &method.examples {
-                    let example_json = ex.to_json();
+                if let Some(examples) = &method.examples {
+                    for ex in examples {
+                        let example_json = ex.to_json();
 
-                    let request = &JsonRpcRequest {
-                        method: method.name.clone(),
-                        params: example_json,
-                    };
-                    // validate params
-                    let validator = open_rpc_spec.params_validator(request).unwrap();
-                    let res = validator.validate(&request.params);
-                    assert_valid(&method.name, res);
+                        let request = &JsonRpcRequest {
+                            method: method.name.clone(),
+                            params: example_json,
+                        };
+                        // validate params
+                        let validator = open_rpc_spec
+                            .params_validator(&request.method.clone())
+                            .unwrap();
+                        let res = validator.validate(&request.params);
+                        assert_valid(&method.name, res);
 
-                    // validate result
-                    let validator = open_rpc_spec.result_validator(method.name.clone()).unwrap();
-                    let res = validator.validate(&ex.result.value);
-                    assert_valid(&method.name, res);
+                        // validate result
+                        let validator = open_rpc_spec
+                            .result_validator(method.name.as_str())
+                            .unwrap();
+                        let res = validator.validate(&ex.result.value);
+                        assert_valid(&method.name, res);
+                    }
                 }
             }
         }
@@ -300,14 +355,18 @@ pub mod tests {
             method: method.into(),
             params: serde_json::from_str(valid_params).unwrap(),
         };
-        let validator = rpc.params_validator("1".into(), &valid_req).unwrap();
+        let validator = rpc
+            .params_validator("1".into(), &valid_req.method.clone())
+            .unwrap();
         assert_valid(method, validator.validate(&valid_req.params));
 
         let invalid_req = JsonRpcRequest {
             method: method.into(),
             params: serde_json::from_str(invalid_params).unwrap(),
         };
-        let validator = rpc.params_validator("1".into(), &invalid_req).unwrap();
+        let validator = rpc
+            .params_validator("1".into(), &invalid_req.method.clone())
+            .unwrap();
         assert!(
             validator.validate(&invalid_req.params).is_err(),
             "{} should have failed validation with {}",

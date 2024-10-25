@@ -89,12 +89,11 @@ case ${1} in
 
         ## Update firebolt-device-manifest.json
         sed -i "" "s@\"library\": \"/etc/firebolt-app-library.json\"@\"library\": \"$HOME/.ripple/firebolt-app-library.json\"@" ~/.ripple/firebolt-device-manifest.json
-
         echo "All Done!"
     ;;
     "run")
         cargo build --features local_dev
-        THUNDER_HOST=${2} cargo run --features local_dev core/main 
+        DEVICE_HOST=${2} cargo run --features local_dev core/main 
     ;;
     "run-mock")
         workspace_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )

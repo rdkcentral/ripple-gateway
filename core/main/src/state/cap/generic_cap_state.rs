@@ -27,8 +27,10 @@ use ripple_sdk::{
         },
         manifest::device_manifest::DeviceManifest,
     },
-    log::debug,
+    log::{error, info, trace},
 };
+use serde::Deserialize;
+use serde_json::json;
 
 use crate::state::platform_state::PlatformState;
 
@@ -54,14 +56,14 @@ impl GenericCapState {
         cap_state
     }
 
-    pub fn ingest_supported(&self, request: Vec<FireboltCap>) {
+    pub fn ingest_supported(&self, request: Vec<FireboltPermission>) {
         let mut supported = self.supported.write().unwrap();
         supported.extend(
             request
                 .iter()
-                .map(|a| a.as_str())
+                .map(|a: &FireboltPermission| serde_json::to_string(a).unwrap())
                 .collect::<HashSet<String>>(),
-        )
+        );
     }
 
     pub fn ingest_availability(&self, request: Vec<FireboltCap>, is_available: bool) {
@@ -73,14 +75,25 @@ impl GenericCapState {
                 not_available.insert(cap.as_str());
             }
         }
-        debug!("Caps that are not available: {:?}", not_available);
+        info!("Caps that are not available: {:?}", not_available);
     }
 
     pub fn check_for_processor(&self, request: Vec<String>) -> HashMap<String, bool> {
         let supported = self.supported.read().unwrap();
         let mut result = HashMap::new();
+        let supported_cap: Vec<String> = supported
+            .clone()
+            .iter()
+            .map(|f| {
+                FireboltPermission::deserialize(json!(f))
+                    .unwrap()
+                    .cap
+                    .as_str()
+            })
+            .collect();
+
         for cap in request {
-            result.insert(cap.clone(), supported.contains(&cap));
+            result.insert(cap.clone(), supported_cap.contains(&cap));
         }
         result
     }
@@ -89,7 +102,7 @@ impl GenericCapState {
         let supported = self.supported.read().unwrap();
         let not_supported: Vec<FireboltCap> = request
             .iter()
-            .filter(|fb_perm| !supported.contains(&fb_perm.cap.as_str()))
+            .filter(|fb_perm| !supported.contains(&serde_json::to_string(fb_perm).unwrap()))
             .map(|fb_perm| fb_perm.cap.clone())
             .collect();
 
@@ -107,10 +120,17 @@ impl GenericCapState {
         Ok(())
     }
 
+    /*
+     * Actually we are not maintaining the available capability list.
+     * We are maintaining only non-available list.
+     * The notion is all supported caps are intrinsically available
+     * unless made as unavailable during initialization.
+     */
     pub fn check_available(
         &self,
         request: &Vec<FireboltPermission>,
     ) -> Result<(), DenyReasonWithCap> {
+        self.check_supported(request)?;
         let not_available = self.not_available.read().unwrap();
         let mut result: Vec<FireboltCap> = Vec::new();
         for fb_perm in request {
@@ -119,11 +139,14 @@ impl GenericCapState {
                 result.push(fb_perm.cap.clone())
             }
         }
-        debug!(
+        trace!(
             "checking availability of caps request={:?}, not_available={:?}, result: {:?}",
-            request, not_available, result
+            request,
+            not_available,
+            result
         );
         if !result.is_empty() {
+            error!("Availability Error for {:?}", result);
             return Err(DenyReasonWithCap::new(DenyReason::Unavailable, result));
         }
         Ok(())
@@ -133,7 +156,6 @@ impl GenericCapState {
         &self,
         permissions: &Vec<FireboltPermission>,
     ) -> Result<(), DenyReasonWithCap> {
-        self.check_supported(permissions)?;
         self.check_available(permissions)
     }
 

@@ -37,7 +37,34 @@ pub enum ProviderRequestPayload {
     AckChallenge(Challenge),
     EntityInfoRequest(EntityInfoParameters),
     PurchasedContentRequest(PurchasedContentParameters),
-    Generic(String),
+    Generic(serde_json::Value),
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub enum ProviderResponsePayloadType {
+    ChallengeResponse,
+    PinChallengeResponse,
+    KeyboardResult,
+    EntityInfoResponse,
+    PurchasedContentResponse,
+    GenericResponse,
+    GenericError,
+}
+
+impl ToString for ProviderResponsePayloadType {
+    fn to_string(&self) -> String {
+        match self {
+            ProviderResponsePayloadType::ChallengeResponse => "ChallengeResponse".into(),
+            ProviderResponsePayloadType::PinChallengeResponse => "PinChallengeResponse".into(),
+            ProviderResponsePayloadType::KeyboardResult => "KeyboardResult".into(),
+            ProviderResponsePayloadType::EntityInfoResponse => "EntityInfoResponse".into(),
+            ProviderResponsePayloadType::PurchasedContentResponse => {
+                "PurchasedContentResponse".into()
+            }
+            ProviderResponsePayloadType::GenericResponse => "GenericResponse".into(),
+            ProviderResponsePayloadType::GenericError => "GenericError".into(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -45,11 +72,12 @@ pub enum ProviderRequestPayload {
 #[serde(untagged)]
 pub enum ProviderResponsePayload {
     ChallengeResponse(ChallengeResponse),
-    ChallengeError(ChallengeError),
+    GenericError(GenericProviderError),
     PinChallengeResponse(PinChallengeResponse),
     KeyboardResult(KeyboardSessionResponse),
     EntityInfoResponse(Option<EntityInfoResult>),
     PurchasedContentResponse(PurchasedContentResult),
+    GenericResponse(serde_json::Value),
 }
 
 impl ProviderResponsePayload {
@@ -69,16 +97,12 @@ impl ProviderResponsePayload {
 
     pub fn as_challenge_response(&self) -> Option<ChallengeResponse> {
         match self {
-            ProviderResponsePayload::ChallengeResponse(res) => {
-                res.granted.map(|value| ChallengeResponse {
-                    granted: Some(value),
-                })
-            }
-            ProviderResponsePayload::PinChallengeResponse(res) => {
-                res.get_granted().map(|value| ChallengeResponse {
-                    granted: Some(value),
-                })
-            }
+            ProviderResponsePayload::ChallengeResponse(res) => Some(ChallengeResponse {
+                granted: res.granted,
+            }),
+            ProviderResponsePayload::PinChallengeResponse(res) => Some(ChallengeResponse {
+                granted: res.granted,
+            }),
             _ => None,
         }
     }
@@ -94,6 +118,22 @@ impl ProviderResponsePayload {
         match self {
             ProviderResponsePayload::PurchasedContentResponse(res) => Some(res.clone()),
             _ => None,
+        }
+    }
+
+    pub fn as_value(&self) -> serde_json::Value {
+        match self {
+            ProviderResponsePayload::ChallengeResponse(res) => serde_json::to_value(res).unwrap(),
+            ProviderResponsePayload::GenericError(res) => serde_json::to_value(res).unwrap(),
+            ProviderResponsePayload::PinChallengeResponse(res) => {
+                serde_json::to_value(res).unwrap()
+            }
+            ProviderResponsePayload::KeyboardResult(res) => serde_json::to_value(res).unwrap(),
+            ProviderResponsePayload::EntityInfoResponse(res) => serde_json::to_value(res).unwrap(),
+            ProviderResponsePayload::PurchasedContentResponse(res) => {
+                serde_json::to_value(res).unwrap()
+            }
+            ProviderResponsePayload::GenericResponse(res) => res.clone(),
         }
     }
 }
@@ -126,6 +166,40 @@ pub struct ExternalProviderResponse<T> {
     pub result: T,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalProviderError {
+    pub correlation_id: String,
+    pub error: GenericProviderError,
+}
+
+#[derive(Debug, Clone, Serialize)]
+
+pub struct ProviderAttributes {
+    pub response_payload_type: ProviderResponsePayloadType,
+    pub error_payload_type: ProviderResponsePayloadType,
+}
+
+impl ProviderAttributes {
+    pub fn get(module: &str) -> Option<&'static ProviderAttributes> {
+        match module {
+            "AcknowledgeChallenge" => Some(&ACKNOWLEDGE_CHALLENGE_ATTRIBS),
+            "PinChallenge" => Some(&PIN_CHALLENGE_ATTRIBS),
+            _ => None,
+        }
+    }
+}
+
+pub const ACKNOWLEDGE_CHALLENGE_ATTRIBS: ProviderAttributes = ProviderAttributes {
+    response_payload_type: ProviderResponsePayloadType::ChallengeResponse,
+    error_payload_type: ProviderResponsePayloadType::GenericError,
+};
+
+pub const PIN_CHALLENGE_ATTRIBS: ProviderAttributes = ProviderAttributes {
+    response_payload_type: ProviderResponsePayloadType::PinChallengeResponse,
+    error_payload_type: ProviderResponsePayloadType::GenericError,
+};
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct ChallengeResponse {
@@ -138,8 +212,8 @@ pub struct DataObject {}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
-pub struct ChallengeError {
-    pub code: u32,
+pub struct GenericProviderError {
+    pub code: i32,
     pub message: String,
     pub data: Option<DataObject>,
 }
