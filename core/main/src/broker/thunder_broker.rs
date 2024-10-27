@@ -88,6 +88,8 @@ impl ThunderBroker {
                         match value {
                             Ok(v) => {
                                 if let tokio_tungstenite::tungstenite::Message::Text(t) = v {
+                                    debug!("Got response from thunder {:?}", t);
+
                                     if broker_c.status_manager.is_controller_response(broker_c.get_sender(), callback.clone(), t.as_bytes()).await {
                                         broker_c.status_manager.handle_controller_response(broker_c.get_sender(), callback.clone(), t.as_bytes()).await;
                                     }

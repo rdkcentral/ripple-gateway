@@ -55,5 +55,8 @@
         "device.model": [
             "custom.model"
         ]
-    }
+    },
+    "rules_path": [
+        "/etc/ripple/rules/ripple.common.rules.json"
+    ]
 }

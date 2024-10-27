@@ -22,7 +22,7 @@ use std::{
 use ripple_sdk::{
     api::gateway::rpc_gateway_api::JsonRpcApiResponse,
     chrono::{DateTime, Duration, Utc},
-    log::{error, info, warn},
+    log::{debug, error, info, warn},
     utils::error::RippleError,
 };
 use serde::{Deserialize, Serialize};
@@ -386,15 +386,20 @@ impl StatusManager {
         data: &JsonRpcApiResponse,
         request: &str,
     ) {
+        debug!("result {:?}", data);
         let result = match &data.result {
             Some(result) => result,
             None => return,
         };
 
+        debug!("request {:?}", request);
+
         let callsign = match request.split('@').last() {
             Some(callsign) => callsign.trim_matches(|c| c == '"' || c == '}'),
             None => return,
         };
+
+        debug!("result {:?}", result);
 
         let status_res: Vec<Status> = match serde_json::from_value(result.clone()) {
             Ok(status_res) => status_res,
@@ -403,6 +408,9 @@ impl StatusManager {
                 return;
             }
         };
+
+        debug!("status {:?}", status_res);
+
 
         for status in status_res {
             if status.callsign != callsign {
