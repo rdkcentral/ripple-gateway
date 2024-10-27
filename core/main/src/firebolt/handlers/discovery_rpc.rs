@@ -31,11 +31,10 @@ use crate::{
 use jsonrpsee::{
     core::{async_trait, Error, RpcResult},
     proc_macros::rpc,
-    types::error::CallError,
     RpcModule,
 };
 
-use ripple_sdk::api::{
+use ripple_sdk::{api::{
     account_link::WatchedRequest,
     device::entertainment_data::*,
     firebolt::{
@@ -46,7 +45,7 @@ use ripple_sdk::api::{
     },
     gateway::rpc_gateway_api::CallContext,
     manifest::device_manifest::IntentValidation,
-};
+}, utils::rpc_utils::rpc_err_with_code_message};
 use ripple_sdk::{
     api::{
         account_link::AccountLinkRequest,
@@ -860,11 +859,7 @@ pub async fn validate_navigation_intent(
             let request_intent = serde_json::to_string(&intent).unwrap_or_default();
             if let Err(err) = serde_json::from_str::<NavigationIntentStrict>(&request_intent) {
                 if intent_validation_config == IntentValidation::Fail {
-                    return Err(jsonrpsee::core::Error::Call(CallError::Custom {
-                        code: JSON_RPC_STANDARD_ERROR_INVALID_PARAMS,
-                        message: format!("{:?} ", err),
-                        data: None,
-                    }));
+                    return Err(rpc_err_with_code_message(JSON_RPC_STANDARD_ERROR_INVALID_PARAMS, format!("{:?} ", err), ));
                 } else {
                     ripple_sdk::log::warn!("Intents do not match the spec : {:?} ", err);
                 }

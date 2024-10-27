@@ -15,7 +15,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-use jsonrpsee::{core::RpcResult, types::error::CallError};
+use jsonrpsee::core::RpcResult;
 use ripple_sdk::{
     api::{
         device::device_peristence::{
@@ -29,7 +29,7 @@ use ripple_sdk::{
     log::trace,
     serde_json::{json, Value},
     tokio,
-    utils::error::RippleError,
+    utils::{error::RippleError, rpc_utils::rpc_err_with_code_message},
 };
 use std::collections::HashMap;
 
@@ -605,22 +605,14 @@ impl StorageManager {
 
     pub fn get_firebolt_error(property: &StorageProperty) -> jsonrpsee::core::Error {
         let data = property.as_data();
-        jsonrpsee::core::Error::Call(CallError::Custom {
-            code: CAPABILITY_NOT_AVAILABLE,
-            message: format!("{}.{} is not available", data.namespace, data.key),
-            data: None,
-        })
+        rpc_err_with_code_message(CAPABILITY_NOT_AVAILABLE, format!("{}.{} is not available", data.namespace, data.key))
     }
 
     pub fn get_firebolt_error_namespace(
         namespace: &String,
         key: &'static str,
     ) -> jsonrpsee::core::Error {
-        jsonrpsee::core::Error::Call(CallError::Custom {
-            code: CAPABILITY_NOT_AVAILABLE,
-            message: format!("{}.{} is not available", namespace, key),
-            data: None,
-        })
+        rpc_err_with_code_message(CAPABILITY_NOT_AVAILABLE, format!("{}.{} is not available", namespace, key))
     }
 
     pub async fn set_vec_string(

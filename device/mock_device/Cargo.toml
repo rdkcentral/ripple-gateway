@@ -33,6 +33,7 @@ serde_json.workspace = true
 serde.workspace = true
 tokio-tungstenite = { workspace = true, features = ["native-tls", "connect"] }
 url.workspace = true
+proc-macro2.workspace = true
 
 
 [dev-dependencies]

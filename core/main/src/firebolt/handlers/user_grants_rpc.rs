@@ -18,7 +18,6 @@
 use jsonrpsee::{
     core::{Error, RpcResult},
     proc_macros::rpc,
-    types::error::CallError,
     RpcModule,
 };
 use ripple_sdk::{
@@ -36,7 +35,7 @@ use ripple_sdk::{
     },
     chrono::{DateTime, Utc},
     log::debug,
-    tokio::sync::oneshot,
+    tokio::sync::oneshot, utils::rpc_utils::rpc_err_with_code_message,
 };
 
 use crate::{
@@ -283,11 +282,7 @@ impl UserGrantsServer for UserGrantsImpl {
         debug!("Check with roles result: {:?}", grant_entries);
         if let Err(grant_entries_err) = grant_entries {
             if DenyReason::AppNotInActiveState == grant_entries_err.reason {
-                return Err(jsonrpsee::core::Error::Call(CallError::Custom {
-                    code: CAPABILITY_NOT_PERMITTED,
-                    message: "Capability cannot be used when app is not in foreground state due to requiring a user grant".to_owned(),
-                    data: None,
-                }));
+                return Err(rpc_err_with_code_message(CAPABILITY_NOT_PERMITTED, "Capability cannot be used when app is not in foreground state due to requiring a user grant"))
             }
         }
         self.usergrants_app(

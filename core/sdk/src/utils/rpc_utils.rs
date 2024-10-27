@@ -17,6 +17,17 @@
 
 use jsonrpsee::core::Error;
 
+use crate::api::firebolt::provider::GenericProviderError;
+
 pub fn rpc_err(msg: impl Into<String>) -> Error {
     Error::Custom(msg.into())
 }
+
+pub fn rpc_err_with_code_message(code:i32, msg: impl Into<String>) -> Error{
+    let err = GenericProviderError {
+        code,
+        message: msg.into(),
+        data: None
+    };
+    Error::Custom(serde_json::to_string(&err).unwrap_or_default())
+}   

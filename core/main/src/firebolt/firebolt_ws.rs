@@ -19,17 +19,16 @@ use std::net::SocketAddr;
 
 use super::firebolt_gateway::FireboltGatewayCommand;
 use crate::{
-    service::apps::delegated_launcher_handler::AppManagerState,
-    state::{
+    service::apps::delegated_launcher_handler::AppManagerState, state::{
         cap::permitted_state::PermissionHandler, platform_state::PlatformState,
         session_state::Session,
-    },
+    }
 };
 use futures::SinkExt;
 use futures::StreamExt;
-use jsonrpsee::types::{error::ErrorCode, ErrorResponse, Id};
+use jsonrpsee::types::error::INVALID_PARAMS_CODE;
 use ripple_sdk::{
-    api::gateway::rpc_gateway_api::{ApiMessage, ApiProtocol, ClientContext, RpcRequest},
+    api::gateway::rpc_gateway_api::{ApiMessage, ApiProtocol, ClientContext, JsonRpcApiResponse, RpcRequest},
     log::{error, info, trace},
     tokio::{
         net::{TcpListener, TcpStream},
@@ -39,6 +38,7 @@ use ripple_sdk::{
     uuid::Uuid,
 };
 use ripple_sdk::{log::debug, tokio};
+use serde_json::json;
 use tokio_tungstenite::{
     tungstenite::{self, Message},
     WebSocketStream,
@@ -284,8 +284,9 @@ impl FireboltWs {
                                 .get_session_for_connection_id(&connection_id)
                             {
                                 use ripple_sdk::api::apps::EffectiveTransport;
-                                let err =
-                                    ErrorResponse::new(ErrorCode::InvalidRequest.into(), Id::Null);
+                                let mut err = JsonRpcApiResponse::default();
+                                
+                                err.error = Some(json!({"code": INVALID_PARAMS_CODE, "message": "invalid params"}));
                                 let msg = serde_json::to_string(&err).unwrap();
                                 let api_msg =
                                     ApiMessage::new(ApiProtocol::JsonRpc, msg, req_id.clone());
