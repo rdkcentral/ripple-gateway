@@ -31,8 +31,7 @@ impl LoadAppLibraryStep {
         if let Ok(r) = r {
             return r;
         }
-
-        r.expect("Need valid App Library")
+        r.unwrap_or_default()
     }
 }
 
@@ -40,7 +39,7 @@ type AppLibraryLoader = Vec<fn() -> Result<(String, Vec<AppLibraryEntry>), Rippl
 
 fn try_app_library_files() -> Result<Vec<AppLibraryEntry>, RippleError> {
     let al_arr: AppLibraryLoader = if cfg!(feature = "local_dev") {
-        vec![load_from_env, load_from_home]
+        vec![load_from_env]
     } else if cfg!(test) {
         vec![load_from_env]
     } else {
@@ -59,13 +58,6 @@ fn try_app_library_files() -> Result<Vec<AppLibraryEntry>, RippleError> {
 fn load_from_env() -> Result<(String, Vec<AppLibraryEntry>), RippleError> {
     match std::env::var("APP_LIBRARY") {
         Ok(path) => load(path),
-        Err(_) => Err(RippleError::MissingInput),
-    }
-}
-
-fn load_from_home() -> Result<(String, Vec<AppLibraryEntry>), RippleError> {
-    match std::env::var("HOME") {
-        Ok(home) => load(format!("{}/.ripple/firebolt-app-library.json", home)),
         Err(_) => Err(RippleError::MissingInput),
     }
 }

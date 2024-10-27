@@ -20,7 +20,9 @@ resolver = "2"
 members = [
     "core/sdk",
     "core/main",
-    "openrpc_validator"]
+    "openrpc_validator",
+    "device/mock_device"
+]
 
 [workspace.package]
 version = "1.1.0"

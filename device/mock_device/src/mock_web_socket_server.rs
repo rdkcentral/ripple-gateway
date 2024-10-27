@@ -156,7 +156,7 @@ impl MockWebSocketServer {
     }
 
     async fn create_listener(port: u16) -> Result<TcpListener, MockServerWebSocketError> {
-        let addr: SocketAddr = format!("0.0.0.0:{}", port).parse().unwrap();
+        let addr: SocketAddr = format!("127.0.0.1:{}", port).parse().unwrap();
         let listener = TcpListener::bind(&addr)
             .await
             .map_err(|_| MockServerWebSocketError::CantListen)?;
@@ -489,7 +489,7 @@ mod tests {
         request: Message,
     ) -> Result<Option<Result<Message, Error>>, Elapsed> {
         let (client, _) =
-            tokio_tungstenite::connect_async(format!("ws://0.0.0.0:{}", server.port()))
+            tokio_tungstenite::connect_async(format!("ws://127.0.0.1:{}", server.port()))
                 .await
                 .expect("Unable to connect to WS server");
 
@@ -541,7 +541,7 @@ mod tests {
         let mock_data = HashMap::default();
         let server = start_server(mock_data).await;
 
-        let _ = tokio_tungstenite::connect_async(format!("ws://0.0.0.0:{}", server.port()))
+        let _ = tokio_tungstenite::connect_async(format!("ws://127.0.0.1:{}", server.port()))
             .await
             .expect("Unable to connect to WS server");
     }
