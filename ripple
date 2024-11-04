@@ -97,6 +97,7 @@ case ${1} in
     ;;
     "run-mock")
         workspace_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+        mkdir -p target/openrpc
         mkdir -p target/manifests
         mkdir -p target/rules
         rm -rf target/manifests/*
@@ -105,6 +106,8 @@ case ${1} in
         cp examples/manifest/mock/mock-extn-manifest.json target/manifests/firebolt-extn-manifest.json
         cp examples/manifest/mock/mock-thunder-device.json target/manifests/mock-thunder-device.json
         cp examples/manifest/mock/rules/ripple.common.rules.json target/rules/ripple.common.rules.json
+        cp examples/manifest/mock/mock-permissions.json target/manifests/mock-permissions.json
+        cp openrpc/* target/openrpc/
 
         sed -i "" "s@\"default_path\": \"/usr/lib/rust/\"@\"default_path\": \"$workspace_dir/target/debug/\"@" target/manifests/firebolt-extn-manifest.json
         default_extension=$(get_default_extension)
@@ -114,9 +117,13 @@ case ${1} in
         sed -i "" "s@\"library\": \"/etc/firebolt-app-library.json\"@\"library\": \"$workspace_dir/target/manifests/firebolt-app-library.json\"@" target/manifests/firebolt-device-manifest.json
         sed -i "" "s@\"mock_data_file\": \"mock-device.json\"@\"mock_data_file\": \"$workspace_dir/target/manifests/mock-thunder-device.json\"@" target/manifests/firebolt-extn-manifest.json
         sed -i "" "s@\"/etc/ripple/rules/ripple.common.rules.json\"@\"$workspace_dir/target/rules/ripple.common.rules.json\"@" target/manifests/firebolt-extn-manifest.json
+        sed -i "" "s@\"/etc/ripple/openrpc/ripple-rpc.json\"@\"$workspace_dir/target/openrpc/ripple-rpc.json\"@" target/manifests/firebolt-extn-manifest.json
+        sed -i "" "s@\"/etc/ripple/openrpc/firebolt-2-rpc.json\"@\"$workspace_dir/target/openrpc/firebolt-2-rpc.json\"@" target/manifests/firebolt-extn-manifest.json
         
+        export FIREBOLT_OPEN_RPC=${workspace_dir}/target/openrpc/firebolt-open-rpc.json
         export EXTN_MANIFEST=${workspace_dir}/target/manifests/firebolt-extn-manifest.json
         export DEVICE_MANIFEST=${workspace_dir}/target/manifests/firebolt-device-manifest.json
+        export FIREBOLT_PERMISSIONS=${workspace_dir}/target/manifests/mock-permissions.json
         cargo build --features local_dev
         cargo run --features local_dev core/main
     ;;

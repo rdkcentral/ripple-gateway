@@ -15,10 +15,10 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
+use crate::state::bootstrap_state::BootstrapState;
 use ripple_sdk::{
     async_trait::async_trait, framework::bootstrap::Bootstep, utils::error::RippleError,
 };
-use crate::state::bootstrap_state::BootstrapState;
 
 /// Sets up the SDK Extn Client and other components for IEC(Inter Extension Communication) clients are updated to app state for future use.
 pub struct SetupExtnClientStep;
@@ -31,7 +31,7 @@ impl Bootstep<BootstrapState> for SetupExtnClientStep {
     async fn setup(&self, state: BootstrapState) -> Result<(), RippleError> {
         let client = state.platform_state.get_client();
         client.init().await;
-        // Main is now ready to take in config requests from extensions        
+        // Main is now ready to take in config requests from extensions
         Ok(())
     }
 }

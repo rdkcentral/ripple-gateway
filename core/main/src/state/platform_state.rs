@@ -47,8 +47,8 @@ use crate::{
 };
 
 use super::{
-    cap::cap_state::CapState, openrpc_state::OpenRpcState,
-    ripple_cache::RippleCache, session_state::SessionState,
+    cap::cap_state::CapState, openrpc_state::OpenRpcState, ripple_cache::RippleCache,
+    session_state::SessionState,
 };
 
 /// Platform state encapsulates the internal state of the Ripple Main application.

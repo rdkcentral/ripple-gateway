@@ -113,7 +113,7 @@ impl TelemetryBuilder {
                     .clone()
                     .unwrap_or(String::from(SEMVER_LIGHTWEIGHT)),
             ),
-            None
+            None,
         );
         Self::send_app_load_stop(ps, "ripple".to_string(), true);
     }

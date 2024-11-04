@@ -15,8 +15,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-use std::
-    sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock};
 
 use ripple_sdk::{
     api::{
@@ -145,7 +144,6 @@ impl MainContextProcessor {
         if !update_token && !Self::check_account_session_token(state).await {
             error!("Account session still not available");
         } else {
-            
         }
     }
 

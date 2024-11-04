@@ -19,8 +19,8 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
-use crate::api::usergrant_entry::UserGrantInfo;
 use crate::api::session::AccountSession;
+use crate::api::usergrant_entry::UserGrantInfo;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub enum PrivacySetting {
@@ -86,7 +86,6 @@ impl Default for PrivacySettings {
     }
 }
 
-
 #[derive(Default, PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct PrivacySettingsData {
     pub allow_acr_collection: Option<bool>,
@@ -124,7 +123,6 @@ impl From<PrivacySettings> for PrivacySettingsData {
     }
 }
 
-
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ContentListenRequest {
@@ -146,15 +144,12 @@ pub struct SetPropertyParams {
     pub dist_session: AccountSession,
 }
 
-
-
 #[derive(Debug, PartialEq, Default, Serialize, Deserialize, Clone)]
 pub struct ExclusionPolicyData {
     pub data_events: Vec<DataEventType>,
     pub entity_reference: Vec<String>,
     pub derivative_propagation: bool,
 }
-
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub enum DataEventType {

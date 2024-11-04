@@ -605,14 +605,20 @@ impl StorageManager {
 
     pub fn get_firebolt_error(property: &StorageProperty) -> jsonrpsee::core::Error {
         let data = property.as_data();
-        rpc_err_with_code_message(CAPABILITY_NOT_AVAILABLE, format!("{}.{} is not available", data.namespace, data.key))
+        rpc_err_with_code_message(
+            CAPABILITY_NOT_AVAILABLE,
+            format!("{}.{} is not available", data.namespace, data.key),
+        )
     }
 
     pub fn get_firebolt_error_namespace(
         namespace: &String,
         key: &'static str,
     ) -> jsonrpsee::core::Error {
-        rpc_err_with_code_message(CAPABILITY_NOT_AVAILABLE, format!("{}.{} is not available", namespace, key))
+        rpc_err_with_code_message(
+            CAPABILITY_NOT_AVAILABLE,
+            format!("{}.{} is not available", namespace, key),
+        )
     }
 
     pub async fn set_vec_string(

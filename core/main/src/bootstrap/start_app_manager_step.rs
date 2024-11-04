@@ -33,7 +33,6 @@ impl Bootstep<BootstrapState> for StartAppManagerStep {
     }
 
     async fn setup(&self, state: BootstrapState) -> Result<(), RippleError> {
-        
         let mut app_manager =
             DelegatedLauncherHandler::new(state.channels_state, state.platform_state);
         tokio::spawn(async move {

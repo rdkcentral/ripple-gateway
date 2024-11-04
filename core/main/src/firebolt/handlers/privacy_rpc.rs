@@ -505,7 +505,10 @@ impl PrivacyImpl {
         if let Some(prop) = property_opt {
             Self::get_bool(platform_state, prop).await
         } else {
-            Err(rpc_err_with_code_message(CAPABILITY_NOT_AVAILABLE, format!("{} is not available", method)))
+            Err(rpc_err_with_code_message(
+                CAPABILITY_NOT_AVAILABLE,
+                format!("{} is not available", method),
+            ))
         }
     }
 
@@ -519,7 +522,10 @@ impl PrivacyImpl {
             debug!("Resolved property: {:?}", prop);
             Self::set_bool(platform_state, prop, set_request.value).await
         } else {
-            Err(rpc_err_with_code_message(CAPABILITY_NOT_AVAILABLE, format!("{} is not available", method)))
+            Err(rpc_err_with_code_message(
+                CAPABILITY_NOT_AVAILABLE,
+                format!("{} is not available", method),
+            ))
         }
     }
 

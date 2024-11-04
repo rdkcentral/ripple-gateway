@@ -21,7 +21,10 @@ use crate::{
     firebolt::{
         firebolt_gateway::FireboltGateway,
         handlers::{
-            capabilities_rpc::CapRPCProvider, discovery_rpc::DiscoveryRPCProvider, lcm_rpc::LifecycleManagementProvider, lifecycle_rpc::LifecycleRippleProvider, parameters_rpc::ParametersRPCProvider, provider_registrar::ProviderRegistrar, user_grants_rpc::UserGrantsRPCProvider
+            capabilities_rpc::CapRPCProvider, discovery_rpc::DiscoveryRPCProvider,
+            lcm_rpc::LifecycleManagementProvider, lifecycle_rpc::LifecycleRippleProvider,
+            parameters_rpc::ParametersRPCProvider, provider_registrar::ProviderRegistrar,
+            user_grants_rpc::UserGrantsRPCProvider,
         },
         rpc::RippleRPCProvider,
     },
@@ -44,7 +47,9 @@ impl FireboltGatewayStep {
         let _ = methods.merge(CapRPCProvider::provide_with_alias(state.clone()));
         let _ = methods.merge(ParametersRPCProvider::provide_with_alias(state.clone()));
         let _ = methods.merge(DiscoveryRPCProvider::provide_with_alias(state.clone()));
-        let _ = methods.merge(LifecycleManagementProvider::provide_with_alias(state.clone()));
+        let _ = methods.merge(LifecycleManagementProvider::provide_with_alias(
+            state.clone(),
+        ));
         let _ = methods.merge(UserGrantsRPCProvider::provide_with_alias(state.clone()));
         let _ = methods.merge(LifecycleRippleProvider::provide_with_alias(state));
         let _ = methods.merge(extn_methods);

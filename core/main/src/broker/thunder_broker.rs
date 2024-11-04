@@ -26,7 +26,7 @@ use futures_util::{SinkExt, StreamExt};
 
 use ripple_sdk::{
     api::gateway::rpc_gateway_api::JsonRpcApiResponse,
-    log::{debug, error, info},
+    log::{debug, error, info, trace},
     tokio::{self, sync::mpsc},
     utils::error::RippleError,
 };
@@ -88,7 +88,7 @@ impl ThunderBroker {
                         match value {
                             Ok(v) => {
                                 if let tokio_tungstenite::tungstenite::Message::Text(t) = v {
-                                    debug!("Got response from thunder {:?}", t);
+                                    info!("Got response from thunder {:?}", t);
 
                                     if broker_c.status_manager.is_controller_response(broker_c.get_sender(), callback.clone(), t.as_bytes()).await {
                                         broker_c.status_manager.handle_controller_response(broker_c.get_sender(), callback.clone(), t.as_bytes()).await;
@@ -111,7 +111,7 @@ impl ThunderBroker {
                         debug!("Got request from receiver for broker {:?}", request);
                         match broker_c.prepare_request(&request) {
                             Ok(updated_request) => {
-                                debug!("Sending request to broker {:?}", updated_request);
+                                info!("Sending request to thunder {:?}", updated_request);
                                 for r in updated_request {
                                     let _feed = ws_tx.feed(tokio_tungstenite::tungstenite::Message::Text(r)).await;
                                     let _flush = ws_tx.flush().await;
@@ -183,20 +183,22 @@ impl ThunderBroker {
         let method = &request.rpc.ctx.method;
         let listen = request.rpc.is_listening();
         let mut response = None;
-        debug!(
+        trace!(
             "Initial subscription map of {:?} app_id {:?}",
-            sub_map, app_id
+            sub_map,
+            app_id
         );
 
         if let Some(mut v) = sub_map.remove(app_id) {
-            debug!("Subscription map after removing app {:?}", v);
+            trace!("Subscription map after removing app {:?}", v);
             if let Some(i) = v
                 .iter()
                 .position(|x| x.rpc.ctx.method.eq_ignore_ascii_case(method))
             {
-                debug!(
+                trace!(
                     "Removing subscription for method {} for app {}",
-                    method, app_id
+                    method,
+                    app_id
                 );
                 response = Some(v.remove(i));
             }

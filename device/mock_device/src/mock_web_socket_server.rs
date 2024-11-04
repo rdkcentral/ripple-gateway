@@ -25,7 +25,7 @@ use http::{HeaderMap, StatusCode};
 use ripple_sdk::{
     api::gateway::rpc_gateway_api::JsonRpcApiRequest,
     futures::{stream::SplitSink, SinkExt, StreamExt},
-    log::{debug, error, warn},
+    log::{error, trace, warn},
     tokio::{
         self,
         net::{TcpListener, TcpStream},
@@ -160,7 +160,7 @@ impl MockWebSocketServer {
         let listener = TcpListener::bind(&addr)
             .await
             .map_err(|_| MockServerWebSocketError::CantListen)?;
-        debug!("Listening on: {:?}", listener.local_addr().unwrap());
+        trace!("Listening on: {:?}", listener.local_addr().unwrap());
 
         Ok(listener)
     }
@@ -170,7 +170,7 @@ impl MockWebSocketServer {
     }
 
     pub async fn start_server(self: Arc<Self>) {
-        debug!("Waiting for connections");
+        trace!("Waiting for connections");
 
         while let Ok((stream, peer_addr)) = self.listener.accept().await {
             let server = self.clone();
@@ -179,11 +179,11 @@ impl MockWebSocketServer {
             });
         }
 
-        debug!("Shutting down");
+        trace!("Shutting down");
     }
 
     async fn accept_connection(&self, peer: SocketAddr, stream: TcpStream) {
-        debug!("Peer address: {}", peer);
+        trace!("Peer address: {}", peer);
         let connection = self.handle_connection(peer, stream).await;
 
         if let Err(e) = connection {
@@ -200,7 +200,7 @@ impl MockWebSocketServer {
             let path = request.uri().path();
             if path != self.conn_path {
                 *response.status_mut() = StatusCode::NOT_FOUND;
-                debug!("Connection response {:?}", response);
+                trace!("Connection response {:?}", response);
             }
 
             if !self.conn_headers.iter().all(|(header_name, header_value)| {
@@ -208,7 +208,7 @@ impl MockWebSocketServer {
             }) {
                 *response.status_mut() = StatusCode::BAD_REQUEST;
                 error!("Incompatible headers. Headers required by server: {:?}. Headers sent in request: {:?}", self.conn_headers, request.headers());
-                debug!("Connection response {:?}", response);
+                trace!("Connection response {:?}", response);
             }
 
             let request_query =
@@ -227,7 +227,7 @@ impl MockWebSocketServer {
             if !(eq_num_params && all_params_match) {
                 *response.status_mut() = StatusCode::BAD_REQUEST;
                 error!("Incompatible query params. Params required by server: {:?}. Params sent in request: {:?}", self.conn_query_params, request.uri().query());
-                debug!("Connection response {:?}", response);
+                trace!("Connection response {:?}", response);
             }
 
             Ok(response)
@@ -238,14 +238,14 @@ impl MockWebSocketServer {
 
         let (send, mut recv) = ws_stream.split();
 
-        debug!("New WebSocket connection: {peer}");
+        trace!("New WebSocket connection: {peer}");
 
         self.add_connected_peer(&peer, send).await;
 
         while let Some(msg) = recv.next().await {
-            debug!("incoming message");
+            trace!("incoming message");
             let msg = msg?;
-            debug!("Message: {:?}", msg);
+            trace!("Message: {:?}", msg);
 
             if msg.is_close() {
                 break;
@@ -261,7 +261,7 @@ impl MockWebSocketServer {
                     }
                 };
 
-                debug!("Parsed message: {:?}", request_message);
+                trace!("Parsed message: {:?}", request_message);
 
                 let responses = match self.find_responses(request_message).await {
                     Some(value) => value,
@@ -278,7 +278,7 @@ impl MockWebSocketServer {
             }
         }
 
-        debug!("Connection dropped peer={peer}");
+        trace!("Connection dropped peer={peer}");
         self.remove_connected_peer(&peer).await;
 
         Ok(())
@@ -300,7 +300,7 @@ impl MockWebSocketServer {
                 if let Err(e) = sink.send(Message::Text(response.clone())).await {
                     error!("Error sending response. resp={e:?}");
                 } else {
-                    debug!("sent response. resp={response:?}");
+                    trace!("sent response. resp={response:?}");
                 }
             }
         } else {
@@ -310,14 +310,14 @@ impl MockWebSocketServer {
     }
 
     async fn find_responses(&self, request_message: Value) -> Option<Vec<ResponseSink>> {
-        debug!(
+        trace!(
             "is value json rpc {} {}",
             request_message,
             is_value_jsonrpc(&request_message)
         );
         if let Ok(request) = serde_json::from_value::<JsonRpcApiRequest>(request_message.clone()) {
             if let Some(id) = request.id {
-                debug!("{}", self.config.activate_all_plugins);
+                trace!("{}", self.config.activate_all_plugins);
                 if self.config.activate_all_plugins
                     && request.method.contains("Controller.1.status")
                 {
@@ -448,7 +448,7 @@ impl MockWebSocketServer {
             if let Err(e) = sink.send(Message::Text(event_value.clone())).await {
                 error!("Error sending response. resp={e:?}");
             } else {
-                debug!("sent response. resp={event_value:?}");
+                trace!("sent response. resp={event_value:?}");
             }
             new_peers.insert(k, sink);
         }

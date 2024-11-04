@@ -30,7 +30,6 @@ impl Bootstep<BootstrapState> for LoadDistributorValuesStep {
     }
 
     async fn setup(&self, s: BootstrapState) -> RippleResponse {
-        
         MainContextProcessor::remove_expired_and_inactive_entries(&s.platform_state);
 
         if !s.platform_state.supports_session() {

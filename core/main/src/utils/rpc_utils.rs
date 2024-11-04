@@ -21,7 +21,8 @@ use ripple_sdk::{
         firebolt::fb_general::{ListenRequest, ListenerResponse},
         gateway::rpc_gateway_api::CallContext,
     },
-    tokio::sync::oneshot, utils::rpc_utils::rpc_err_with_code_message,
+    tokio::sync::oneshot,
+    utils::rpc_utils::rpc_err_with_code_message,
 };
 
 use crate::{

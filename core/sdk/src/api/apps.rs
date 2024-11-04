@@ -332,10 +332,7 @@ mod tests {
             launch: AppLaunchInfo::default(),
         };
 
-        assert_eq!(
-            app.get_transport(),
-            EffectiveTransport::Websocket
-        );
+        assert_eq!(app.get_transport(), EffectiveTransport::Websocket);
     }
 
     #[test]

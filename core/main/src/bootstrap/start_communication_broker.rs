@@ -32,7 +32,6 @@ impl Bootstep<BootstrapState> for StartCommunicationBroker {
 
     async fn setup(&self, state: BootstrapState) -> Result<(), RippleError> {
         let ps = state.platform_state.clone();
-    
 
         // Start the Broker Reciever
         if let Ok(rx) = state.channels_state.get_broker_receiver() {

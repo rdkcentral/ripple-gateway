@@ -40,6 +40,7 @@ use ripple_sdk::{
 use crate::{
     mock_device_controller::{MockDeviceController, MockDeviceControllerServer},
     mock_device_processor::MockDeviceProcessor,
+    mock_permission_processor::DistributorPermissionProcessor,
     utils::boot_ws_server,
 };
 
@@ -82,7 +83,9 @@ fn start_launcher(sender: ExtnSender, receiver: CReceiver<CExtnMessage>) {
         tokio::spawn(async move {
             match boot_ws_server(client.clone()).await {
                 Ok(server) => {
-                    client.add_request_processor(MockDeviceProcessor::new(client.clone(), server))
+                    client.add_request_processor(MockDeviceProcessor::new(client.clone(), server));
+                    client
+                        .add_request_processor(DistributorPermissionProcessor::new(client.clone()));
                 }
                 Err(err) => panic!("websocket server failed to start. {}", err),
             };

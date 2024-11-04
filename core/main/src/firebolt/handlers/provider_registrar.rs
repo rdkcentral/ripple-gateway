@@ -45,7 +45,8 @@ use ripple_sdk::{
         gateway::rpc_gateway_api::{CallContext, CallerSession},
     },
     log::{error, info, warn},
-    tokio::{sync::oneshot, time::timeout}, utils::rpc_utils::{rpc_err, rpc_err_with_code_message},
+    tokio::{sync::oneshot, time::timeout},
+    utils::rpc_utils::{rpc_err, rpc_err_with_code_message},
 };
 use serde_json::{Map, Value};
 
@@ -492,7 +493,7 @@ impl ProviderRegistrar {
                                 }
                             }
                         } else {
-                            return Err(rpc_err("Error returning from provider"))
+                            return Err(rpc_err("Error returning from provider"));
                         }
                     } else {
                         return Err(rpc_err("Provider response timeout"));

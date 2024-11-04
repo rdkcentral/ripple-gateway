@@ -18,14 +18,14 @@
 //pub mod rpc_gateway;
 //pub mod firebolt_gateway;
 pub mod handlers {
+    pub mod advertising_rpc;
     pub mod capabilities_rpc;
+    pub mod discovery_rpc;
     pub mod lcm_rpc;
     pub mod lifecycle_rpc;
     pub mod parameters_rpc;
-    pub mod provider_registrar;
-    pub mod discovery_rpc;
     pub mod privacy_rpc;
-    pub mod advertising_rpc;
+    pub mod provider_registrar;
     pub mod user_grants_rpc;
 }
 pub mod firebolt_gatekeeper;

@@ -32,7 +32,7 @@ use ripple_sdk::{
         gateway::rpc_gateway_api::CallContext,
     },
     async_trait::async_trait,
-    log::error,
+    log::{debug, error},
     tokio::sync::oneshot,
 };
 
@@ -202,9 +202,11 @@ impl LifecycleManagementServer for LifecycleManagementImpl {
             return Err(rpc_err("Unable send app request"));
         }
         if let Ok(r) = app_resp_rx.await {
+            debug!("Got response back");
             match r {
                 Ok(s) => match s {
                     AppManagerResponse::Session(session) => {
+                        debug!("Sending session");
                         return Ok(session);
                     }
                     _ => error!("unable to register session"),

@@ -23,9 +23,7 @@ use std::{
 
 use ripple_sdk::{
     api::{
-        apps::{
-            AppError, AppManagerResponse, AppMethod, AppSession, StateChange,
-        },
+        apps::{AppError, AppManagerResponse, AppMethod, AppSession, StateChange},
         device::{device_user_grants_data::EvaluateAt, entertainment_data::NavigationIntent},
         firebolt::{
             fb_capabilities::{DenyReason, DenyReasonWithCap, FireboltPermission},
@@ -36,10 +34,7 @@ use ripple_sdk::{
                 LCM_EVENT_ON_SESSION_TRANSITION_CANCELED,
                 LCM_EVENT_ON_SESSION_TRANSITION_COMPLETED,
             },
-            fb_metrics::{
-                AppLifecycleState, BehavioralMetricContext,
-                
-            },
+            fb_metrics::{AppLifecycleState, BehavioralMetricContext},
             fb_secondscreen::SECOND_SCREEN_EVENT_ON_LAUNCH_REQUEST,
         },
         gateway::rpc_gateway_api::{AppIdentification, CallerSession},
@@ -63,13 +58,14 @@ use serde_json::{json, Value};
 
 use crate::{
     service::{
-        apps::app_events::AppEvents, extn::ripple_client::RippleClient, telemetry_builder::TelemetryBuilder, user_grants::{GrantHandler, GrantPolicyEnforcer, GrantState}
+        apps::app_events::AppEvents,
+        extn::ripple_client::RippleClient,
+        telemetry_builder::TelemetryBuilder,
+        user_grants::{GrantHandler, GrantPolicyEnforcer, GrantState},
     },
     state::{
-        bootstrap_state::ChannelsState,
-        cap::permitted_state::PermissionHandler,
-        platform_state::PlatformState,
-        session_state::PendingSessionInfo,
+        bootstrap_state::ChannelsState, cap::permitted_state::PermissionHandler,
+        platform_state::PlatformState, session_state::PendingSessionInfo,
     },
     utils::rpc_utils::rpc_await_oneshot,
     SEMVER_LIGHTWEIGHT,
@@ -380,8 +376,6 @@ impl DelegatedLauncherHandler {
     }
 
     pub async fn start(&mut self) {
-        
-
         while let Some(data) = self.app_mgr_req_rx.recv().await {
             // App request
             debug!("DelegatedLauncherHandler: App request: data={:?}", data);
@@ -433,18 +427,17 @@ impl DelegatedLauncherHandler {
                     );
                     (resp, Some(app_id))
                 }
-                AppMethod::Close(_app_id, _reason) => 
-                    todo!()
-                    // self.send_lifecycle_mgmt_event(LifecycleManagementEventRequest::Close(
-                    //     LifecycleManagementCloseEvent {
-                    //         parameters: LifecycleManagementCloseParameters {
-                    //             app_id: app_id.clone(),
-                    //             reason,
-                    //         },
-                    //     },
-                    // ))
-                    // .await,
-                    // Some(app_id),
+                AppMethod::Close(_app_id, _reason) => todo!(),
+                // self.send_lifecycle_mgmt_event(LifecycleManagementEventRequest::Close(
+                //     LifecycleManagementCloseEvent {
+                //         parameters: LifecycleManagementCloseParameters {
+                //             app_id: app_id.clone(),
+                //             reason,
+                //         },
+                //     },
+                // ))
+                // .await,
+                // Some(app_id),
                 ,
                 AppMethod::CheckFinished(app_id) => {
                     (self.check_finished(&app_id).await, Some(app_id))
@@ -495,6 +488,7 @@ impl DelegatedLauncherHandler {
                 _ => (Err(AppError::NotSupported), None),
             };
 
+            debug!("App Manager process completed");
             if let Some(id) = app_id {
                 self.report_app_state_transition(&id, &method, resp.clone())
                     .await;
@@ -582,11 +576,7 @@ impl DelegatedLauncherHandler {
         }
     }
 
-    async fn start_session(
-        &mut self,
-        session: AppSession,
-    ) -> Result<AppManagerResponse, AppError> {
-
+    async fn start_session(&mut self, session: AppSession) -> Result<AppManagerResponse, AppError> {
         let app_id = session.app.id.clone();
 
         if let Some(app_title) = session.app.title.as_ref() {
@@ -604,10 +594,12 @@ impl DelegatedLauncherHandler {
                 ))
             }
             _ => {
+                debug!("New loaded session");
                 // New loaded Session, Caller must provide Intent.
                 if session.launch.intent.is_none() {
                     return Err(AppError::NoIntentError);
                 }
+                debug!("App is unloading");
                 // app is unloading
                 if self.platform_state.app_manager_state.get(&app_id).is_some() {
                     // app exist so we are creating a new session
@@ -720,6 +712,7 @@ impl DelegatedLauncherHandler {
         session: AppSession,
         loading: bool,
     ) -> SessionResponse {
+        debug!("Precheck and activate {}", loading);
         let app_id = session.app.id.clone();
         let mut session_id = None;
         let mut loaded_session_id = None;
@@ -861,6 +854,7 @@ impl DelegatedLauncherHandler {
         if emit_event {
             Self::emit_completed(platform_state, &app_id).await;
         }
+        debug!("Session");
         sess
     }
 

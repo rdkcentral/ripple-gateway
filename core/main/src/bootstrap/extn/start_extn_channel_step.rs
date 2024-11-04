@@ -24,7 +24,12 @@ use ripple_sdk::{
     utils::error::RippleError,
 };
 
-use crate::{processor::{config_processor::ConfigRequestProcessor, exn_status_processor::ExtnStatusProcessor}, state::{bootstrap_state::BootstrapState, extn_state::PreLoadedExtnChannel}};
+use crate::{
+    processor::{
+        config_processor::ConfigRequestProcessor, exn_status_processor::ExtnStatusProcessor,
+    },
+    state::{bootstrap_state::BootstrapState, extn_state::PreLoadedExtnChannel},
+};
 
 fn start_preloaded_channel(
     state: &BootstrapState,
@@ -33,7 +38,6 @@ fn start_preloaded_channel(
     let client = state.platform_state.get_client();
     client.add_request_processor(ConfigRequestProcessor::new(state.platform_state.clone()));
     client.add_event_processor(ExtnStatusProcessor::new(state.extn_state.clone()));
-
 
     if let Err(e) = state.extn_state.clone().start_channel(channel, client) {
         error!("Error during Device channel bootstrap");

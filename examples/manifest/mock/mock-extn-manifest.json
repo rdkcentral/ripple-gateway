@@ -16,6 +16,7 @@
                         "config"
                     ],
                     "fulfills": [
+                        "permissions"
                     ]
                 },
                 {
@@ -58,5 +59,9 @@
     },
     "rules_path": [
         "/etc/ripple/rules/ripple.common.rules.json"
+    ],
+    "extn_sdks": [
+        "/etc/ripple/openrpc/ripple-rpc.json",
+        "/etc/ripple/openrpc/firebolt-2-rpc.json"
     ]
 }
