@@ -438,7 +438,6 @@ impl DelegatedLauncherHandler {
                 // ))
                 // .await,
                 // Some(app_id),
-                ,
                 AppMethod::CheckFinished(app_id) => {
                     (self.check_finished(&app_id).await, Some(app_id))
                 }
