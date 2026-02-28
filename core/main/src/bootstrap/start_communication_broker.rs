@@ -20,7 +20,6 @@ use ripple_sdk::{
 };
 
 use crate::broker::endpoint_broker::BrokerOutputForwarder;
-use crate::processor::rpc_gateway_processor::RpcGatewayProcessor;
 use crate::state::bootstrap_state::BootstrapState;
 
 pub struct StartCommunicationBroker;
@@ -33,12 +32,6 @@ impl Bootstep<BootstrapState> for StartCommunicationBroker {
 
     async fn setup(&self, state: BootstrapState) -> Result<(), RippleError> {
         let ps = state.platform_state.clone();
-        // When endpoint broker starts up enable RPC processor there might be internal services which might need
-        // brokering data
-        state
-            .platform_state
-            .get_client()
-            .add_request_processor(RpcGatewayProcessor::new(state.platform_state.get_client()));
 
         // Start the Broker Reciever
         if let Ok(rx) = state.channels_state.get_broker_receiver() {

@@ -22,7 +22,7 @@ use std::{
 use ripple_sdk::{
     api::gateway::rpc_gateway_api::JsonRpcApiResponse,
     chrono::{DateTime, Duration, Utc},
-    log::{error, info, warn},
+    log::{error, info, trace, warn},
     utils::error::RippleError,
 };
 use serde::{Deserialize, Serialize};
@@ -297,7 +297,7 @@ impl StatusManager {
         };
 
         if let Some(method) = data.method {
-            info!("is_controller_response Method: {:?}", method);
+            trace!("is_controller_response Method: {:?}", method);
             if method == STATE_CHANGE_EVENT_METHOD {
                 // intercept the statechange event and update plugin status.
                 let params = match data.params {
@@ -386,15 +386,20 @@ impl StatusManager {
         data: &JsonRpcApiResponse,
         request: &str,
     ) {
+        trace!("result {:?}", data);
         let result = match &data.result {
             Some(result) => result,
             None => return,
         };
 
+        trace!("request {:?}", request);
+
         let callsign = match request.split('@').last() {
             Some(callsign) => callsign.trim_matches(|c| c == '"' || c == '}'),
             None => return,
         };
+
+        trace!("result {:?}", result);
 
         let status_res: Vec<Status> = match serde_json::from_value(result.clone()) {
             Ok(status_res) => status_res,
@@ -403,6 +408,8 @@ impl StatusManager {
                 return;
             }
         };
+
+        trace!("status {:?}", status_res);
 
         for status in status_res {
             if status.callsign != callsign {

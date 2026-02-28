@@ -15,7 +15,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-use std::{collections::HashMap, fs, path::Path};
+use std::{collections::HashMap, fs};
 
 use ripple_sdk::{
     api::{
@@ -32,7 +32,7 @@ use ripple_sdk::{
         },
         extn_client_message::ExtnResponse,
     },
-    log::{debug, error},
+    log::{debug, error, info},
 };
 
 #[derive(Debug, Clone)]
@@ -47,16 +47,19 @@ pub struct DistributorPermissionProcessor {
 }
 
 fn get_permissions_map() -> HashMap<String, Vec<FireboltPermission>> {
-    if let Some(p) = Path::new("/opt/ripple/permissions_map.json").to_str() {
-        if let Ok(contents) = fs::read_to_string(p) {
+    if let Ok(path) = std::env::var("FIREBOLT_PERMISSIONS") {
+        info!(
+            " loading firebolt_open_rpc from FIREBOLT_PERMISSIONS env var path: {}",
+            &path
+        );
+        if let Ok(contents) = fs::read_to_string(path) {
             if let Ok(r) = serde_json::from_str(contents.as_str()) {
                 return r;
             }
         }
     }
 
-    let contents = std::include_str!("./general_permissions_map.json");
-    serde_json::from_str(contents).expect("valid permissions map")
+    HashMap::new()
 }
 
 impl DistributorPermissionProcessor {

@@ -52,6 +52,12 @@
                 "request": "{ namespace: \"$context.appId\", scope: .scope}",
                 "response": "if .success then \"null\" else { code: -32100, message: \"couldnt set timezone\" } end"
             }
+        },
+        "keyboard.provideStandard": {
+            "alias": "provided"
+        },
+        "keyboard.standard": {
+            "alias": "provided"
         }
     }
 }

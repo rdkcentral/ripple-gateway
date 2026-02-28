@@ -15,26 +15,9 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
+use crate::state::bootstrap_state::BootstrapState;
 use ripple_sdk::{
     async_trait::async_trait, framework::bootstrap::Bootstep, utils::error::RippleError,
-};
-
-use crate::processor::account_link_processor::AccountLinkProcessor;
-use crate::processor::metrics_processor::{MetricsProcessor, OpMetricsProcessor};
-use crate::processor::settings_processor::SettingsProcessor;
-use crate::processor::{
-    store_privacy_settings_processor::StorePrivacySettingsProcessor,
-    store_user_grants_processor::StoreUserGrantsProcessor,
-};
-use crate::{
-    processor::{
-        app_events_processor::AppEventsProcessor,
-        authorized_info_processor::AuthorizedInfoProcessor,
-        config_processor::ConfigRequestProcessor, exn_status_processor::ExtnStatusProcessor,
-        keyboard_processor::KeyboardProcessor, pin_processor::PinProcessor,
-        storage::storage_manager_processor::StorageManagerProcessor,
-    },
-    state::bootstrap_state::BootstrapState,
 };
 
 /// Sets up the SDK Extn Client and other components for IEC(Inter Extension Communication) clients are updated to app state for future use.
@@ -49,21 +32,6 @@ impl Bootstep<BootstrapState> for SetupExtnClientStep {
         let client = state.platform_state.get_client();
         client.init().await;
         // Main is now ready to take in config requests from extensions
-        client.add_request_processor(ConfigRequestProcessor::new(state.platform_state.clone()));
-        client.add_request_processor(PinProcessor::new(state.platform_state.clone()));
-        client.add_request_processor(KeyboardProcessor::new(state.platform_state.clone()));
-        client.add_event_processor(ExtnStatusProcessor::new(state.extn_state.clone()));
-        client.add_event_processor(AppEventsProcessor::new(state.platform_state.clone()));
-        client.add_request_processor(StorageManagerProcessor::new(state.platform_state.clone()));
-        client.add_request_processor(StoreUserGrantsProcessor::new(state.platform_state.clone()));
-        client.add_request_processor(StorePrivacySettingsProcessor::new(
-            state.platform_state.clone(),
-        ));
-        client.add_request_processor(AuthorizedInfoProcessor::new(state.platform_state.clone()));
-        client.add_request_processor(AccountLinkProcessor::new(state.platform_state.clone()));
-        client.add_request_processor(SettingsProcessor::new(state.platform_state.clone()));
-        client.add_request_processor(MetricsProcessor::new(state.platform_state.clone()));
-        client.add_request_processor(OpMetricsProcessor::new(state.platform_state.clone()));
         Ok(())
     }
 }

@@ -64,6 +64,7 @@ pub struct CallContext {
     pub method: String,
     pub cid: Option<String>,
     pub gateway_secure: bool,
+    pub context: Vec<String>,
 }
 
 impl CallContext {
@@ -88,6 +89,7 @@ impl CallContext {
             method,
             cid,
             gateway_secure,
+            context: Vec::new(),
         }
     }
 
@@ -110,6 +112,7 @@ impl crate::Mockable for CallContext {
             method: "module.method".to_owned(),
             cid: Some("cid".to_owned()),
             gateway_secure: true,
+            context: Vec::new(),
         }
     }
 }
@@ -200,14 +203,15 @@ impl JsonRpcApiRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsonRpcApiResponse {
     pub jsonrpc: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub result: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<Value>,
-    #[serde(skip_serializing)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub method: Option<String>,
-    #[serde(skip_serializing)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub params: Option<Value>,
 }
 
@@ -234,6 +238,35 @@ impl crate::Mockable for JsonRpcApiResponse {
             method: None,
             params: None,
         }
+    }
+}
+
+impl JsonRpcApiResponse {
+    pub fn update_event_message(&mut self, request: &RpcRequest) {
+        if request.is_event_based() {
+            self.params = self.result.take();
+            self.id = None;
+            self.method = Some(format!("{}.{}", request.ctx.method, request.ctx.call_id))
+        } else {
+            self.method = None;
+            self.params = None;
+        }
+    }
+
+    pub fn is_response(&self) -> bool {
+        self.params.is_none()
+            && self.method.is_none()
+            && self.id.is_some()
+            && (self.result.is_some() || self.error.is_some())
+    }
+
+    pub fn get_response(request: &str) -> Option<JsonRpcApiResponse> {
+        if let Ok(response) = serde_json::from_str::<JsonRpcApiResponse>(request) {
+            if response.is_response() {
+                return Some(response);
+            }
+        }
+        None
     }
 }
 
@@ -395,9 +428,7 @@ impl RpcRequest {
 
     pub fn is_listening(&self) -> bool {
         if let Some(params) = self.get_params() {
-            debug!("Successfully got params {:?}", params);
             if let Ok(v) = serde_json::from_value::<ListenRequest>(params) {
-                debug!("Successfully got listen request {:?}", v);
                 return v.listen;
             }
         }
@@ -437,6 +468,35 @@ impl RpcRequest {
             method,
             stats: RpcStats::default(),
         }
+    }
+
+    pub fn raw_json_request(&self) -> String {
+        //self.method
+        //self.ctx.call_id
+        let json_req = if let Ok(params) = serde_json::from_str::<Value>(&self.params_json) {
+            json!({
+                "jsonrpc": "2.0",
+                "id": self.ctx.call_id,
+                "method": self.method,
+                "params": params
+            })
+        } else {
+            json!({
+                "jsonrpc": "2.0",
+                "id": self.ctx.call_id,
+                "method": self.method
+            })
+        };
+        serde_json::to_string(&json_req).unwrap()
+    }
+
+    pub fn is_event_based(&self) -> bool {
+        self.ctx.context.contains(&"eventBased".to_owned())
+    }
+
+    pub fn add_context(&mut self, context: Vec<String>) {
+        debug!("Adding context to request {:?}", context);
+        self.ctx.context.extend(context)
     }
 }
 
@@ -486,6 +546,7 @@ mod tests {
             method: "method123".to_string(),
             cid: Some("cid123".to_string()),
             gateway_secure: true,
+            context: Vec::new(),
         };
 
         let caller_session: CallerSession = ctx.into();
@@ -505,6 +566,7 @@ mod tests {
             method: "method123".to_string(),
             cid: Some("cid123".to_string()),
             gateway_secure: true,
+            context: Vec::new(),
         };
 
         let app_identification: AppIdentification = ctx.into();
@@ -707,6 +769,7 @@ mod tests {
             method: "some_method".to_string(),
             cid: Some("some_cid".to_string()),
             gateway_secure: true,
+            context: Vec::new(),
         };
 
         let rpc_request = RpcRequest {

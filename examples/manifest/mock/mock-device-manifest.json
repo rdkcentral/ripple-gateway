@@ -47,10 +47,10 @@
       ],
       "app_authorization_rules": {
         "app_ignore_rules": {
-          "foo-insecure": [
+          "AppManager": [
             "*"
           ],
-          "refui": [
+          "someApp": [
             "*"
           ]
         }

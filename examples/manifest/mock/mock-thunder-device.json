@@ -22,8 +22,7 @@
         "org.rdk.System.register": [
             {
                 "params": {
-                    "event":"onTimeZoneDSTChanged",
-                    "id":"client.org.rdk.System.events"
+                    "event":"onTimeZoneDSTChanged"
                 },
                 "result": 0,
                 "events": [
@@ -41,8 +40,7 @@
             },
             {
                 "params": {
-                    "event":"onSystemPowerStateChanged",
-                    "id":"client.org.rdk.System.events"
+                    "event":"onSystemPowerStateChanged"
                 },
                 "result": 0,
                 "events": [
@@ -54,13 +52,29 @@
                         }
                     }
                 ]
+            },
+            {
+                "params": {
+                    "event":"onTerritoryChanged"
+                },
+                "result": 0,
+                "events": [
+                    {
+                        "delay": 500,
+                        "data": {
+                            "oldTerritory": "GBR",
+                            "newTerritory": "ITA",
+                            "oldRegion": "GB-ENG",
+                            "newRegion": "EU-IT"
+                        }
+                    }
+                ]
             }
         ],
         "org.rdk.Network.register": [
             {
                 "params": {
-                    "event":"onInternetStatusChange",
-                    "id":"client.org.rdk.Network.events"
+                    "event":"onInternetStatusChange"
                 },
                 "result": 0,
                 "events": [

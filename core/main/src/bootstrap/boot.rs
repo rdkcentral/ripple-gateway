@@ -27,8 +27,7 @@ use crate::state::bootstrap_state::BootstrapState;
 
 use super::{
     extn::{
-        check_launcher_step::CheckLauncherStep, load_extn_metadata_step::LoadExtensionMetadataStep,
-        load_extn_step::LoadExtensionsStep, load_session_step::LoadDistributorValuesStep,
+        load_extn_metadata_step::LoadExtensionMetadataStep, load_extn_step::LoadExtensionsStep,
         start_extn_channel_step::StartExtnChannelsStep,
     },
     setup_extn_client_step::SetupExtnClientStep,
@@ -69,8 +68,6 @@ pub async fn boot(state: BootstrapState) -> RippleResponse {
     execute_step(StartExtnChannelsStep, &bootstrap).await?;
     execute_step(StartAppManagerStep, &bootstrap).await?;
     execute_step(StartOtherBrokers, &bootstrap).await?;
-    execute_step(LoadDistributorValuesStep, &bootstrap).await?;
-    execute_step(CheckLauncherStep, &bootstrap).await?;
     execute_step(StartWsStep, &bootstrap).await?;
     execute_step(FireboltGatewayStep, &bootstrap).await?;
     Ok(())

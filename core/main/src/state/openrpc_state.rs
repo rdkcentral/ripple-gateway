@@ -91,8 +91,8 @@ impl OpenRpcState {
                     Ok(fvm) => {
                         return Some(fvm.into());
                     }
-                    _ => {
-                        error!("load_open_rpc: can't parse {path}");
+                    Err(e) => {
+                        error!("load_open_rpc: can't parse {path} {:?}", e);
                     }
                 }
             }

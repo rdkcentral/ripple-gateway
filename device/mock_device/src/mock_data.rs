@@ -15,7 +15,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-use ripple_sdk::log::{debug, error};
+use ripple_sdk::log::trace;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{collections::HashMap, fmt::Display};
@@ -46,7 +46,7 @@ impl ParamResponse {
     pub fn get_key(&self, key: &Value) -> Option<Self> {
         match &self.params {
             Some(v) => {
-                debug!("get_key check {:?}={:?}", v, key);
+                trace!("get_key check {:?}={:?}", v, key);
                 if v.eq(key) {
                     return Some(self.clone());
                 }
@@ -94,7 +94,7 @@ impl ParamResponse {
                     self.get_notification_id()
                 };
 
-                error!("Getting notif id {:?}", notif_id);
+                trace!("Getting notif id {:?}", notif_id);
                 for event in events {
                     sink_responses.push(ResponseSink {
                         delay: event.delay.unwrap_or(0),
@@ -108,7 +108,7 @@ impl ParamResponse {
                 data: json!({"jsonrpc": "2.0", "id": id, "result": null}),
             });
         }
-        debug!("Total sink responses {:?}", sink_responses);
+        trace!("Total sink responses {:?}", sink_responses);
         sink_responses
     }
 }

@@ -1,4 +1,29 @@
 {
+	"schemaVersion": {
+		"major": 1,
+		"minor": 0,
+		"patch": 0,
+		"readable": "Firebolt Version Manifest v1.0.0"
+	},
+	"capabilities": {
+		"xrn:firebolt:capability:lifecycle:state": {
+			"level": "must",
+			"use": {
+				"public": true,
+				"negotiable": false
+			},
+			"manage": {
+				"public": false,
+				"negotiable": true
+			},
+			"provide": {
+				"public": false,
+				"negotiable": true
+			}
+		}
+	},
+	"apis": {
+		"1":{
 	"openrpc": "1.2.4",
 	"info": {
 		"title": "Ripple",
@@ -2472,3 +2497,5 @@
 		}
 	}
 }
+	}
+	}

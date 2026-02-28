@@ -42,14 +42,13 @@ use crate::{
             app_events::AppEventsState, delegated_launcher_handler::AppManagerState,
             provider_broker::ProviderBrokerState,
         },
-        data_governance::DataGovernanceState,
         extn::ripple_client::RippleClient,
     },
 };
 
 use super::{
-    cap::cap_state::CapState, metrics_state::MetricsState, openrpc_state::OpenRpcState,
-    ripple_cache::RippleCache, session_state::SessionState,
+    cap::cap_state::CapState, openrpc_state::OpenRpcState, ripple_cache::RippleCache,
+    session_state::SessionState,
 };
 
 /// Platform state encapsulates the internal state of the Ripple Main application.
@@ -101,8 +100,6 @@ pub struct PlatformState {
     pub app_manager_state: AppManagerState,
     pub open_rpc_state: OpenRpcState,
     pub router_state: RouterState,
-    pub data_governance: DataGovernanceState,
-    pub metrics: MetricsState,
     pub device_session_id: DeviceSessionIdentifier,
     pub ripple_cache: RippleCache,
     pub version: Option<String>,
@@ -134,17 +131,11 @@ impl PlatformState {
             app_manager_state: AppManagerState::new(&manifest.configuration.saved_dir),
             open_rpc_state: OpenRpcState::new(Some(exclusory), extn_sdks, provider_registations),
             router_state: RouterState::new(),
-            data_governance: DataGovernanceState::default(),
-            metrics: MetricsState::default(),
             device_session_id: DeviceSessionIdentifier::default(),
             ripple_cache: RippleCache::default(),
             version,
             endpoint_state: EndpointBrokerState::new(broker_sender, rule_engine, client),
         }
-    }
-
-    pub fn has_internal_launcher(&self) -> bool {
-        self.extn_manifest.get_launcher_capability().is_some()
     }
 
     pub fn get_launcher_capability(&self) -> Option<ExtnId> {
